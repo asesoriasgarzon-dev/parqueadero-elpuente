@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Entrada {{ tipo|capitalize }} – El Puente{% endblock %}
+{% block content %}
+<div class="page-title">
+  {% if tipo == 'carro' %}🚗{% else %}🏍️{% endif %}
+  Entrada <span>{{ tipo|capitalize }}</span>
+</div>
+
+{% if mensaje %}
+<div class="alert alert-{{ mensaje[0] }}">{{ mensaje[1] }}</div>
+{% endif %}
+
+<div class="card" style="max-width:480px">
+  <form method="POST" id="formEntrada">
+    <div class="form-group">
+      <label>Placa del vehículo *</label>
+      <input name="placa" id="placa" class="form-control" placeholder="ej: ABC123"
+             value="{{ placa_pre }}" style="text-transform:uppercase;font-size:1.3rem;font-weight:700;letter-spacing:2px"
+             autocomplete="off" autofocus>
+      <div id="placa-status" style="margin-top:.4rem;font-size:.85rem;color:var(--text2)"></div>
+    </div>
+    <div class="form-group">
+      <label>Marca</label>
+      <select name="marca" id="marca" class="form-control">
+        <option value="">Seleccionar...</option>
+        {% for m in ['Toyota','Mazda','Hyundai','Renault','Chevrolet','Kia','Ford','Nissan','Suzuki','Bajaj','Yamaha','Honda','AKT','Otra'] %}
+        <option value="{{ m }}" {% if cliente and cliente.marca == m %}selected{% endif %}>{{ m }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Celular</label>
+      <input name="celular" id="celular" class="form-control" placeholder="300..."
+             value="{{ cliente.celular if cliente else '' }}">
+    </div>
+    <div style="display:flex;gap:.8rem;margin-top:1.5rem">
+      <button type="submit" class="btn btn-primary" style="flex:1">✓ Registrar Entrada</button>
+      <a href="{{ url_for('inicio') }}" class="btn btn-secondary">Cancelar</a>
+    </div>
+  </form>
+</div>
+
+<script>
+const placaInput = document.getElementById('placa');
+const marcaInput = document.getElementById('marca');
+const celularInput = document.getElementById('celular');
+const statusDiv = document.getElementById('placa-status');
+let timer;
+
+placaInput.addEventListener('input', () => {
+  placaInput.value = placaInput.value.toUpperCase();
+  clearTimeout(timer);
+  const val = placaInput.value.trim();
+  if (val.length < 3) { statusDiv.textContent = ''; return; }
+  timer = setTimeout(() => {
+    fetch(`/buscar_placa?placa=${val}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.status === 'activo') {
+          statusDiv.innerHTML = '<span style="color:var(--warn)">⚠️ Vehículo ya está en el patio. Se redirigirá a salida.</span>';
+          setTimeout(() => window.location = `/salida?placa=${val}`, 1500);
+        } else if (d.status === 'conocido') {
+          statusDiv.innerHTML = '<span style="color:var(--accent)">✓ Cliente conocido – datos autocompletados</span>';
+          if (d.marca) { for(let o of marcaInput.options) if(o.value===d.marca) o.selected=true; }
+          if (d.celular) celularInput.value = d.celular;
+        } else {
+          statusDiv.innerHTML = '<span style="color:var(--text2)">Placa nueva</span>';
+        }
+      });
+  }, 500);
+});
+</script>
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Inicio – Parqueadero El Puente{% endblock %}
+{% block content %}
+<div class="page-title">Panel <span>Principal</span></div>
+
+<div class="card-grid card-grid-3" style="margin-bottom:2rem">
+  <div class="stat-card">
+    <div class="stat-num">{{ activos }}</div>
+    <div class="stat-label">Vehículos en patio</div>
+  </div>
+  <div class="stat-card" style="border-top-color:var(--accent2)">
+    <div class="stat-num" style="color:var(--accent2)">${{ "{:,}".format(caja_hoy) }}</div>
+    <div class="stat-label">Recaudado hoy</div>
+  </div>
+  <div class="stat-card" style="border-top-color:#4a90e2">
+    <div class="stat-num" style="color:#4a90e2">{{ 30 - activos }}</div>
+    <div class="stat-label">Puestos libres</div>
+  </div>
+</div>
+
+<div class="page-title" style="font-size:1.2rem;margin-bottom:1rem">Registrar vehículo</div>
+<div class="card-grid card-grid-2">
+  <a href="{{ url_for('entrada', tipo='carro') }}" class="btn-vehicle">
+    <div class="icon">🚗</div>
+    <div class="label">CARRO</div>
+  </a>
+  <a href="{{ url_for('entrada', tipo='moto') }}" class="btn-vehicle moto">
+    <div class="icon">🏍️</div>
+    <div class="label">MOTO</div>
+  </a>
+</div>
+
+<div style="margin-top:2rem">
+  <div class="page-title" style="font-size:1.2rem;margin-bottom:1rem">Registrar salida rápida</div>
+  <form action="{{ url_for('salida_form') }}" method="GET" class="search-bar">
+    <input name="placa" class="form-control" placeholder="Ingrese placa..." style="text-transform:uppercase">
+    <button type="submit" class="btn btn-danger">Registrar Salida</button>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Activos – El Puente{% endblock %}
+{% block content %}
+<div class="page-title">Vehículos <span>Activos</span></div>
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Placa</th><th>Tipo</th><th>Marca</th><th>Celular</th><th>Entrada</th><th>Tiempo</th><th>Valor Est.</th><th>Acción</th></tr>
+    </thead>
+    <tbody>
+    {% for item in lista %}
+    <tr>
+      <td><b>{{ item.reg.placa }}</b></td>
+      <td>{{ item.reg.tipo|capitalize }}</td>
+      <td>{{ item.reg.marca or '---' }}</td>
+      <td>{{ item.reg.celular or '---' }}</td>
+      <td style="font-size:.82rem">{{ item.reg.hora_entrada }}</td>
+      <td><span class="badge badge-blue">{{ item.tiempo }}</span></td>
+      <td style="color:var(--accent);font-weight:700">${{ "{:,}".format(item.valor_est) }}</td>
+      <td>
+        <a href="{{ url_for('salida_form', placa=item.reg.placa) }}" class="btn btn-danger btn-sm">Salida</a>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="8" style="text-align:center;color:var(--text2);padding:2rem">No hay vehículos en el patio</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Caja – El Puente{% endblock %}
+{% block content %}
+<div class="page-title">Cierre de <span>Caja</span></div>
+
+<form method="GET" class="search-bar" style="max-width:400px">
+  <input name="fecha" type="date" class="form-control" value="{{ fecha }}">
+  <button type="submit" class="btn btn-primary">Filtrar</button>
+</form>
+
+<div class="card-grid card-grid-3" style="margin-bottom:1.5rem">
+  <div class="stat-card" style="border-top-color:var(--accent)">
+    <div class="stat-num">${{ "{:,}".format(total) }}</div>
+    <div class="stat-label">Total del día</div>
+  </div>
+  <div class="stat-card" style="border-top-color:var(--accent2)">
+    <div class="stat-num">{{ regs|length }}</div>
+    <div class="stat-label">Vehículos atendidos</div>
+  </div>
+  {% for metodo, monto in por_metodo.items() %}
+  <div class="stat-card" style="border-top-color:#4a90e2">
+    <div class="stat-num" style="color:#4a90e2;font-size:1.8rem">${{ "{:,}".format(monto|int) }}</div>
+    <div class="stat-label">{{ metodo }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Ticket</th><th>Placa</th><th>Tipo</th><th>Entrada</th><th>Salida</th><th>Método</th><th>Cajero</th><th>Valor</th></tr>
+    </thead>
+    <tbody>
+    {% for r in regs %}
+    <tr>
+      <td>{{ "%05d"|format(r.ticket_num) }}</td>
+      <td><b>{{ r.placa }}</b></td>
+      <td>{{ r.tipo|capitalize }}</td>
+      <td style="font-size:.82rem">{{ r.hora_entrada }}</td>
+      <td style="font-size:.82rem">{{ r.hora_salida }}</td>
+      <td>{{ r.metodo_pago or 'Efectivo' }}</td>
+      <td>{{ r.cajero or '---' }}</td>
+      <td style="color:var(--accent);font-weight:700">${{ "{:,}".format(r.valor|int) }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="8" style="text-align:center;color:var(--text2);padding:2rem">Sin movimientos para esta fecha</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

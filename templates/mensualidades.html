@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Mensualidades – El Puente{% endblock %}
+{% block content %}
+<div class="page-title">Gestión de <span>Mensualidades</span></div>
+
+<div class="card" style="max-width:600px;margin-bottom:2rem">
+  <div style="font-weight:700;margin-bottom:1rem;color:var(--text2)">Agregar / Actualizar mensualidad</div>
+  <form method="POST">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem">
+      <div class="form-group">
+        <label>Nombre</label>
+        <input name="nombre" class="form-control" required>
+      </div>
+      <div class="form-group">
+        <label>Placa</label>
+        <input name="placa" class="form-control" style="text-transform:uppercase" required>
+      </div>
+      <div class="form-group">
+        <label>Tipo</label>
+        <select name="tipo" class="form-control">
+          <option value="carro">Carro</option>
+          <option value="moto">Moto</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Estado</label>
+        <select name="estado" class="form-control">
+          <option value="Activo">Activo</option>
+          <option value="Inactivo">Inactivo</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Fecha Inicio</label>
+        <input name="fecha_inicio" type="date" class="form-control" required>
+      </div>
+      <div class="form-group">
+        <label>Fecha Fin</label>
+        <input name="fecha_fin" type="date" class="form-control" required>
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary">Guardar</button>
+  </form>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Nombre</th><th>Placa</th><th>Tipo</th><th>Estado</th><th>Inicio</th><th>Fin</th><th>Acción</th></tr>
+    </thead>
+    <tbody>
+    {% for item in lista %}
+    <tr>
+      <td>{{ item.reg.nombre }}</td>
+      <td><b>{{ item.reg.placa }}</b></td>
+      <td>{{ item.reg.tipo|capitalize }}</td>
+      <td>
+        {% if item.alerta == 'Vencida' %}<span class="badge badge-red">Vencida</span>
+        {% elif item.alerta == 'Por vencer' %}<span class="badge badge-warn">Por vencer</span>
+        {% else %}<span class="badge badge-green">Activo</span>{% endif %}
+      </td>
+      <td>{{ item.reg.fecha_inicio }}</td>
+      <td>{{ item.reg.fecha_fin }}</td>
+      <td>
+        <a href="{{ url_for('eliminar_mensualidad', id=item.reg.id) }}"
+           onclick="return confirm('¿Eliminar esta mensualidad?')"
+           class="btn btn-danger btn-sm">Eliminar</a>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7" style="text-align:center;color:var(--text2);padding:2rem">Sin mensualidades registradas</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

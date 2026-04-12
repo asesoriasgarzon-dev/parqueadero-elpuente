@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Tarifas – El Puente{% endblock %}
+{% block content %}
+<div class="page-title">Panel de <span>Tarifas</span></div>
+<div class="alert alert-warn" style="max-width:600px">⚠️ Solo el administrador puede modificar las tarifas.</div>
+
+<div class="card" style="max-width:600px">
+  <form method="POST">
+    {% for t in tarifas %}
+    <div style="border:1px solid var(--border);border-radius:10px;padding:1.2rem;margin-bottom:1.2rem">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.3rem;font-weight:900;margin-bottom:1rem;color:var(--accent)">
+        {% if t.tipo == 'carro' %}🚗{% else %}🏍️{% endif %} {{ t.tipo|capitalize }}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.8rem">
+        <div class="form-group">
+          <label>Valor/Hora</label>
+          <input name="vh_{{ t.tipo }}" type="number" class="form-control" value="{{ t.valor_hora|int }}" required>
+        </div>
+        <div class="form-group">
+          <label>Tarifa Día</label>
+          <input name="vd_{{ t.tipo }}" type="number" class="form-control" value="{{ t.valor_dia|int }}" required>
+        </div>
+        <div class="form-group">
+          <label>Cortesía (min)</label>
+          <input name="mc_{{ t.tipo }}" type="number" class="form-control" value="{{ t.minutos_cortesia }}" required>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+    <button type="submit" class="btn btn-primary">💾 Guardar Tarifas</button>
+  </form>
+</div>
+{% endblock %}
