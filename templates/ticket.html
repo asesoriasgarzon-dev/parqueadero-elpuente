@@ -3,12 +3,14 @@
 {% block content %}
 <div class="ticket-wrap" id="ticketPrint">
   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 0 10px;">
-  <img src="{{ url_for('static', filename='img/carro.png') }}" style="width: 35px; height: auto;">
-  <img src="{{ url_for('static', filename='img/P.png') }}" style="width: 45px; height: auto;">
-  <img src="{{ url_for('static', filename='img/moto.png') }}" style="width: 35px; height: auto;">
+  <img src="{{ url_for('static', filename='img/carro.png') }}" style="width: 50px; height: auto;">
+  <img src="{{ url_for('static', filename='img/P.png') }}" style="width: 65px; height: auto;">
+  <img src="{{ url_for('static', filename='img/moto.png') }}" style="width: 50px; height: auto;">
 </div>
-<h2 style="margin: 0; text-align: center; font-size: 1.3rem;">PARQUEADERO EL PUENTE</h2>
-  <div style="text-align:center;font-size:.75rem;color:#555">
+<h2 style="margin: 0; text-align: center; font-size: 1.5rem; font-weight: 800; letter-spacing: 1px;">
+  PARQUEADERO EL PUENTE
+</h2>
+<hr style="border-top: 2px dashed #000; margin: 10px 0;">
     Nit: 1.151.952.649-3 · No Responsable de IVA<br>
     Carrera 4 # 5-26 · Tel: 3152775288<br>
     Horario: 7:00am – 7:00pm
@@ -18,7 +20,11 @@
     {% if tipo == 'entrada' %}TICKET DE ENTRADA{% else %}TICKET DE SALIDA{% endif %}
   </div>
   <div class="ticket-row"><span>Recibo N°:</span><span>{{ "%05d"|format(reg.ticket_num) }}</span></div>
-  <div class="ticket-row"><span>Placa:</span><span><b>{{ reg.placa }}</b></span></div>
+  <div style="border: 3px solid #000; margin: 10px 0; padding: 10px; text-align: center;">
+  <span style="font-size: 2.2rem; font-family: monospace; letter-spacing: 4px;">
+    <b>{{ reg.placa }}</b>
+  </span>
+</div>
   <div class="ticket-row"><span>Tipo:</span><span>{{ reg.tipo|capitalize }}</span></div>
   <div class="ticket-row"><span>Marca:</span><span>{{ reg.marca or '---' }}</span></div>
   <div class="ticket-row"><span>Celular:</span><span>{{ reg.celular or '---' }}</span></div>
