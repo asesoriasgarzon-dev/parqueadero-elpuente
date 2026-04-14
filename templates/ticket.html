@@ -2,7 +2,12 @@
 {% block title %}Ticket – El Puente{% endblock %}
 {% block content %}
 <div class="ticket-wrap" id="ticketPrint">
-  <h2>🅿️ PARQUEADERO EL PUENTE</h2>
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 0 10px;">
+  <img src="{{ url_for('static', filename='img/carro.png') }}" style="width: 35px; height: auto;">
+  <img src="{{ url_for('static', filename='img/P.png') }}" style="width: 45px; height: auto;">
+  <img src="{{ url_for('static', filename='img/moto.png') }}" style="width: 35px; height: auto;">
+</div>
+<h2 style="margin: 0; text-align: center; font-size: 1.3rem;">PARQUEADERO EL PUENTE</h2>
   <div style="text-align:center;font-size:.75rem;color:#555">
     Nit: 1.151.952.649-3 · No Responsable de IVA<br>
     Carrera 4 # 5-26 · Tel: 3152775288<br>
