@@ -75,6 +75,9 @@ def init_db():
             c.execute(f"ALTER TABLE parqueadero ADD COLUMN {col} {tipo}")
         except Exception:
             pass
+    # Agrega esto antes de conn.commit() para actualizar precios existentes
+    c.execute("UPDATE tarifas SET valor_dia = 13000 WHERE tipo = 'carro'")
+    c.execute("UPDATE tarifas SET valor_dia = 7000 WHERE tipo = 'moto'")
     conn.commit()
     conn.close()
 
