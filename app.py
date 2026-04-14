@@ -2,9 +2,16 @@ from flask import Flask, render_template, request, redirect, url_for, session, j
 import sqlite3, os, math, shutil
 from datetime import datetime, timedelta
 from functools import wraps
+import pytz
 
 app = Flask(__name__)
 app.secret_key = "parqueadero_el_puente_2026"
+
+# ─── CONFIGURACIÓN DE ZONA HORARIA (PUNTO 2) ───
+def get_colombia_time():
+    tz = pytz.timezone('America/Bogota')
+    return datetime.now(tz)
+# ──────────────────────────────────────────────
 
 # ─── CONFIGURACIÓN DE RUTA PARA RAILWAY VOLUME ───
 # Si la carpeta /data existe (en Railway), usamos esa ruta. 
