@@ -233,25 +233,40 @@ def salida_form():
         reg = conn.execute("SELECT * FROM parqueadero WHERE placa=? AND hora_salida IS NULL ORDER BY id DESC LIMIT 1", (placa,)).fetchone()
         conn.close()
         if reg:
+            # 1. Convertimos la hora de entrada y le asignamos la zona horaria de Bogotá
             entrada_dt = datetime.strptime(reg["hora_entrada"], "%Y-%m-%d %H:%M:%S")
-            dur = datetime.now() - entrada_dt
-            mins = int(dur.total_seconds() // 60)
+            tz = pytz.timezone('America/Bogota')
+            entrada_dt = tz.localize(entrada_dt)
+            
+            # 2. Obtenemos la hora actual de Colombia
+            ahora_co = get_colombia_time()
+            
+            # 3. Calculamos la duración real (Colombia vs Colombia)
+            dur = ahora_co - entrada_dt
+            mins = int(max(0, dur.total_seconds() // 60))
+            
             h, m = divmod(mins, 60)
             tiempo_str = f"{h}h {m}m"
             tarifas = get_tarifas()
             valor_sugerido = int(calcular_valor(reg["tipo"], mins, tarifas))
+            
     if request.method == "POST":
         placa = request.form.get("placa","").strip().upper()
         valor = request.form.get("valor", "0").replace(",","").strip()
         metodo = request.form.get("metodo_pago", "Efectivo")
         convenio = request.form.get("convenio", "").strip()
+        
         try:
             valor_pago = float(valor)
         except ValueError:
             valor_pago = 0
-        ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+        # 4. Usamos la hora de Colombia para la salida final
+        ahora = get_colombia_time().strftime("%Y-%m-%d %H:%M:%S")
+        
         conn = get_db()
         reg2 = conn.execute("SELECT * FROM parqueadero WHERE placa=? AND hora_salida IS NULL ORDER BY id DESC LIMIT 1", (placa,)).fetchone()
+        
         if reg2:
             conn.execute("UPDATE parqueadero SET hora_salida=?, valor=?, metodo_pago=?, cajero=? WHERE id=?",
                          (ahora, valor_pago, f"{metodo}{' - '+convenio if convenio else ''}", session.get("usuario"), reg2["id"]))
@@ -260,6 +275,7 @@ def salida_form():
             conn.close()
             return redirect(url_for("ticket_salida", ticket=ticket))
         conn.close()
+        
     return render_template("salida.html", placa=placa, reg=reg,
                            valor_sugerido=valor_sugerido, tiempo_str=tiempo_str)
 
@@ -279,11 +295,14 @@ def ticket_salida(ticket):
     conn = get_db()
     reg = conn.execute("SELECT * FROM parqueadero WHERE ticket_num=?", (ticket,)).fetchone()
     conn.close()
+    
     if reg and reg["hora_entrada"] and reg["hora_salida"]:
+        # Aquí no necesitamos get_colombia_time porque AMBAS horas ya están guardadas 
+        # en la base de datos como texto. Solo las restamos.
         entrada_dt = datetime.strptime(reg["hora_entrada"], "%Y-%m-%d %H:%M:%S")
         salida_dt = datetime.strptime(reg["hora_salida"], "%Y-%m-%d %H:%M:%S")
         dur = salida_dt - entrada_dt
-        mins = int(dur.total_seconds() // 60)
+        mins = int(max(0, dur.total_seconds() // 60))
         h, m = divmod(mins, 60)
         tiempo_str = f"{h}h {m}m"
     else:
@@ -297,15 +316,26 @@ def clientes():
     conn = get_db()
     activos = conn.execute("SELECT * FROM parqueadero WHERE hora_salida IS NULL ORDER BY hora_entrada").fetchall()
     conn.close()
+    
     tarifas = get_tarifas()
-    ahora = datetime.now()
+    # CAMBIO CRÍTICO: Usamos la hora de Colombia para comparar con los carros que están adentro
+    ahora_co = get_colombia_time()
+    
     lista = []
     for r in activos:
         entrada_dt = datetime.strptime(r["hora_entrada"], "%Y-%m-%d %H:%M:%S")
-        mins = int((ahora - entrada_dt).total_seconds() // 60)
+        
+        # Localizamos la hora de entrada para que sea compatible con la de Colombia
+        tz = pytz.timezone('America/Bogota')
+        entrada_dt = tz.localize(entrada_dt)
+        
+        # Restamos Colombia vs Colombia
+        mins = int(max(0, (ahora_co - entrada_dt).total_seconds() // 60))
+        
         h, m = divmod(mins, 60)
         valor_est = int(calcular_valor(r["tipo"], mins, tarifas))
         lista.append({"reg": r, "tiempo": f"{h}h {m}m", "valor_est": valor_est})
+        
     return render_template("clientes.html", lista=lista)
 
 # ─── Histórico ───────────────────────────────────────────────────
@@ -325,7 +355,12 @@ def historico():
 @app.route("/caja")
 @login_required
 def caja():
-    fecha = request.args.get("fecha", datetime.now().strftime("%Y-%m-%d"))
+    # CAMBIO: Usamos get_colombia_time() para que la fecha por defecto sea la de Cali
+    ahora_co = get_colombia_time()
+    fecha_hoy = ahora_co.strftime("%Y-%m-%d")
+    
+    fecha = request.args.get("fecha", fecha_hoy)
+    
     conn = get_db()
     regs = conn.execute("SELECT * FROM parqueadero WHERE date(hora_salida)=? ORDER BY hora_salida DESC", (fecha,)).fetchall()
     total = sum(r["valor"] for r in regs if r["valor"])
@@ -352,9 +387,13 @@ def mensualidades():
         conn.execute("INSERT OR REPLACE INTO mensualidades (nombre,placa,tipo,estado,fecha_inicio,fecha_fin) VALUES (?,?,?,?,?,?)",
                      (nombre, placa, tipo, estado, fi, ff))
         conn.commit()
+    
     regs = conn.execute("SELECT * FROM mensualidades ORDER BY nombre").fetchall()
     conn.close()
-    hoy = datetime.now().date()
+    
+    # CAMBIO: 'hoy' ahora es la fecha real de Colombia
+    hoy = get_colombia_time().date()
+    
     lista = []
     for r in regs:
         alerta = r["estado"]
@@ -399,7 +438,11 @@ def tarifas():
 @login_required
 @admin_required
 def backup():
-    nombre = f"backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
+    # CAMBIO: Usamos get_colombia_time() para que el nombre del archivo
+    # refleje la hora real en la que hiciste la copia.
+    ahora_co = get_colombia_time()
+    nombre = f"backup_{ahora_co.strftime('%Y%m%d_%H%M%S')}.db"
+    
     destino = os.path.join(BACKUP_DIR, nombre)
     shutil.copy2(DB_FILE, destino)
     return send_file(destino, as_attachment=True, download_name=nombre)
@@ -412,13 +455,25 @@ def api_valor_estimado():
     conn = get_db()
     reg = conn.execute("SELECT tipo, hora_entrada FROM parqueadero WHERE placa=? AND hora_salida IS NULL ORDER BY id DESC LIMIT 1", (placa,)).fetchone()
     conn.close()
+    
     if not reg:
         return jsonify({"error": "No encontrado"})
-    mins = int((datetime.now() - datetime.strptime(reg["hora_entrada"], "%Y-%m-%d %H:%M:%S")).total_seconds() // 60)
+    
+    # 1. Convertimos la entrada y le ponemos la zona horaria de Colombia
+    entrada_dt = datetime.strptime(reg["hora_entrada"], "%Y-%m-%d %H:%M:%S")
+    tz = pytz.timezone('America/Bogota')
+    entrada_dt = tz.localize(entrada_dt)
+    
+    # 2. Obtenemos la hora actual de Colombia
+    ahora_co = get_colombia_time()
+    
+    # 3. Calculamos los minutos reales (Colombia vs Colombia)
+    mins = int(max(0, (ahora_co - entrada_dt).total_seconds() // 60))
+    
     h, m = divmod(mins, 60)
     tarifas = get_tarifas()
     valor = int(calcular_valor(reg["tipo"], mins, tarifas))
+    
     return jsonify({"tiempo": f"{h}h {m}m", "valor": valor, "mins": mins})
-
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)
