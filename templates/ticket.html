@@ -1,67 +1,96 @@
 {% extends "base.html" %}
 {% block title %}Ticket – El Puente{% endblock %}
 {% block content %}
-<div class="ticket-wrap" id="ticketPrint">
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 0 10px;">
-  <img src="{{ url_for('static', filename='img/carro.png') }}" style="width: 50px; height: auto;">
-  <img src="{{ url_for('static', filename='img/P.png') }}" style="width: 65px; height: auto;">
-  <img src="{{ url_for('static', filename='img/moto.png') }}" style="width: 50px; height: auto;">
-</div>
-<h2 style="margin: 0; text-align: center; font-size: 1.5rem; font-weight: 800; letter-spacing: 1px;">
-  PARQUEADERO EL PUENTE
-</h2>
-<hr style="border-top: 2px dashed #000; margin: 10px 0;">
-    Nit: 1.151.952.649-3 · No Responsable de IVA<br>
-    Carrera 4 # 5-26 · Tel: 3152775288<br>
-    Horario: 7:00am – 7:00pm
-  </div>
-  <hr class="ticket-divider">
-  <div style="text-align:center;font-weight:bold;font-size:1rem;margin-bottom:.5rem">
-    {% if tipo == 'entrada' %}TICKET DE ENTRADA{% else %}TICKET DE SALIDA{% endif %}
-  </div>
-  <div class="ticket-row"><span>Recibo N°:</span><span>{{ "%05d"|format(reg.ticket_num) }}</span></div>
-  <div style="border: 3px solid #000; margin: 10px 0; padding: 10px; text-align: center;">
-  <span style="font-size: 2.2rem; font-family: monospace; letter-spacing: 4px;">
-    <b>{{ reg.placa }}</b>
-  </span>
-</div>
-  <div class="ticket-row"><span>Tipo:</span><span>{{ reg.tipo|capitalize }}</span></div>
-  <div class="ticket-row"><span>Marca:</span><span>{{ reg.marca or '---' }}</span></div>
-  <div class="ticket-row"><span>Celular:</span><span>{{ reg.celular or '---' }}</span></div>
-  <hr class="ticket-divider">
-  <div class="ticket-row"><span>Entrada:</span><span>{{ reg.hora_entrada }}</span></div>
-  {% if tipo == 'salida' %}
-  <div class="ticket-row"><span>Salida:</span><span>{{ reg.hora_salida }}</span></div>
-  <div class="ticket-row"><span>Tiempo:</span><span>{{ tiempo_str }}</span></div>
-  {% if reg.metodo_pago %}<div class="ticket-row"><span>Pago:</span><span>{{ reg.metodo_pago }}</span></div>{% endif %}
-  <hr class="ticket-divider">
-  <div class="ticket-total">TOTAL: ${{ "{:,}".format(reg.valor|int) }}</div>
-  {% else %}
-  <hr class="ticket-divider">
-  <div style="text-align:center;font-size:.8rem">
-    {% if reg.tipo == 'carro' %}Tarifa: $4.000/hora o fracción{% else %}Tarifa: $2.500/hora o fracción{% endif %}
-  </div>
-  {% endif %}
-  <hr class="ticket-divider">
-  <div class="ticket-footer">
-    Atendido por: {{ reg.cajero or 'Operador' }}<br><br>
-    El vehículo se entregará al portador del recibo.<br>
-    No respondemos por objetos dejados en el vehículo.<br>
-    No respondemos por hurto ni daños causados por terceros.<br><br>
-    Sistema v2.0 · asesoriasgarzon@gmail.com
+
+<div class="ticket-container">
+  <div class="ticket-wrap" id="ticketPrint">
+    
+    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 5px;">
+      <img src="{{ url_for('static', filename='img/carro.png') }}" style="width: 50px; height: auto;">
+      <img src="{{ url_for('static', filename='img/P.png') }}" style="width: 65px; height: auto;">
+      <img src="{{ url_for('static', filename='img/moto.png') }}" style="width: 50px; height: auto;">
+    </div>
+
+    <h2 style="margin: 5px 0 0 0; text-align: center; font-size: 1.4rem; font-weight: bold; width: 100%;">PARQUEADERO EL PUENTE</h2>
+    <div style="text-align:center; font-size: 0.8rem; line-height: 1.2; width: 100%;">
+      Nit: 1.151.952.649-3 · No Resp. de IVA<br>
+      Cra 4 # 5-26 · Tel: 3152775288<br>
+      Horario: 7:00am - 7:00pm
+    </div>
+
+    <hr style="border-top: 2px dashed #000; margin: 10px 0; width: 100%;">
+
+    <div style="text-align:center; font-weight:bold; font-size: 1.1rem; border: 1px solid #000; background: #000; color: #fff; padding: 5px; margin-bottom: 10px; width: 100%; box-sizing: border-box;">
+      {% if tipo == 'entrada' %} ◀ TICKET DE ENTRADA ▶ {% else %} ◀ TICKET DE SALIDA ▶ {% endif %}
+    </div>
+
+    <div style="text-align: center; width: 100%; margin-bottom: 5px; font-size: 1.1rem;">
+      N° {{ "%05d"|format(reg.ticket_num) }}
+    </div>
+    
+    <div style="border: 2px solid #000; margin: 10px auto; padding: 10px; text-align: center; width: 95%; box-sizing: border-box;">
+      <span style="font-size: 2.8rem; font-weight: 900; letter-spacing: 3px; display: block;">
+        {{ reg.placa }}
+      </span>
+    </div>
+
+    <div class="info-section" style="width: 100%; font-size: 0.95rem;">
+      <div style="display: flex; justify-content: space-between;"><span>Tipo:</span><span>{{ reg.tipo|capitalize }}</span></div>
+      <div style="display: flex; justify-content: space-between;"><span>Marca:</span><span>{{ reg.marca or '---' }}</span></div>
+      <div style="display: flex; justify-content: space-between;"><span>Celular:</span><span>{{ reg.celular or '---' }}</span></div>
+      <hr style="border-top: 1px solid #ccc; margin: 8px 0;">
+      <div style="display: flex; justify-content: space-between;"><span>Entrada:</span><span>{{ reg.hora_entrada }}</span></div>
+      
+      {% if tipo == 'salida' %}
+      <div style="display: flex; justify-content: space-between;"><span>Salida:</span><span>{{ reg.hora_salida }}</span></div>
+      <div style="display: flex; justify-content: space-between; font-weight: bold;"><span>Tiempo:</span><span>{{ tiempo_str }}</span></div>
+      <div style="display: flex; justify-content: space-between;"><span>Pago:</span><span>{{ reg.metodo_pago or 'Efectivo' }}</span></div>
+      <hr style="border-top: 2px solid #000; margin: 8px 0;">
+      <div style="text-align: center; font-size: 1.8rem; font-weight: bold;">TOTAL: ${{ "{:,}".format(reg.valor|int) }}</div>
+      {% else %}
+      <hr style="border-top: 1px solid #ccc; margin: 8px 0;">
+      <div style="text-align: center; font-weight: bold;">
+        {% if reg.tipo == 'carro' %}$4.000 / hora o fracción{% else %}$2.500 / hora o fracción{% endif %}
+      </div>
+      {% endif %}
+    </div>
+
+    <div style="text-align: center; font-size: 0.75rem; margin-top: 15px; border-top: 1px dashed #999; padding-top: 10px; width: 100%;">
+      Atendido por: {{ reg.cajero or 'Operador' }}<br><br>
+      <b>REGLAMENTO</b><br>
+      El vehículo se entregará al portador del recibo. No respondemos por objetos ni daños por terceros.<br><br>
+      Gracias por su visita
+    </div>
   </div>
 </div>
 
-<div class="ticket-actions">
-  <button onclick="window.print()" class="btn btn-primary">🖨️ Imprimir</button>
-  <a href="{{ url_for('inicio') }}" class="btn btn-secondary">← Volver al inicio</a>
+<div class="ticket-actions" style="text-align: center; margin-top: 20px;">
+  <button onclick="window.print()" class="btn btn-primary" style="padding: 10px 25px; font-size: 1.1rem;">🖨️ Imprimir Ticket</button>
+  <br><br>
+  <a href="{{ url_for('inicio') }}" style="text-decoration: none; color: #666;">← Volver al inicio</a>
 </div>
 
 <style>
-@media print {
-  .navbar, .ticket-actions { display: none !important; }
-  body { background: white !important; }
-  .ticket-wrap { box-shadow: none; margin: 0; color: #000; }
-}
+  .ticket-container {
+    display: flex;
+    justify-content: center;
+    padding: 20px;
+    background-color: #f0f0f0;
+  }
+  .ticket-wrap {
+    background: white;
+    width: 350px; /* Ancho ideal para impresoras térmicas y vista web */
+    padding: 20px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  @media print {
+    .navbar, .ticket-actions { display: none !important; }
+    body { background: white !important; }
+    .ticket-container { padding: 0; background: white; }
+    .ticket-wrap { width: 100%; box-shadow: none; padding: 0; }
+  }
 </style>
 {% endblock %}
