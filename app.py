@@ -6,8 +6,15 @@ from functools import wraps
 app = Flask(__name__)
 app.secret_key = "parqueadero_el_puente_2026"
 
-DB_FILE = "parqueadero.db"
-BACKUP_DIR = "backups"
+# ─── CONFIGURACIÓN DE RUTA PARA RAILWAY VOLUME ───
+# Si la carpeta /data existe (en Railway), usamos esa ruta. 
+# Si no (en tu PC), usa la ruta local.
+if os.path.exists('/data'):
+    DB_FILE = "/data/parqueadero.db"
+    BACKUP_DIR = "/data/backups"
+else:
+    DB_FILE = "parqueadero.db"
+    BACKUP_DIR = "backups"
 
 if not os.path.exists(BACKUP_DIR):
     os.makedirs(BACKUP_DIR)
