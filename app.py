@@ -6,6 +6,12 @@ from functools import wraps
 app = Flask(__name__)
 app.secret_key = "parqueadero_el_puente_2026"
 
+def get_colombia_time():
+    # Creamos la zona horaria de Bogotá
+    tz = pytz.timezone('America/Bogota')
+    # Devolvemos la hora actual en esa zona
+    return datetime.now(tz)
+
 # ─── CONFIGURACIÓN DE RUTA PARA RAILWAY VOLUME ───
 # Si la carpeta /data existe (en Railway), usamos esa ruta. 
 # Si no (en tu PC), usa la ruta local.
@@ -154,7 +160,9 @@ def logout():
 def inicio():
     conn = get_db()
     activos = conn.execute("SELECT COUNT(*) as c FROM parqueadero WHERE hora_salida IS NULL").fetchone()["c"]
-    hoy = datetime.now().strftime("%Y-%m-%d")
+   # CAMBIO AQUÍ: Usamos get_colombia_time() en lugar de datetime.now()
+    ahora_co = get_colombia_time() 
+    hoy = ahora_co.strftime("%Y-%m-%d")
     caja_hoy = conn.execute("SELECT COALESCE(SUM(valor),0) as t FROM parqueadero WHERE date(hora_salida)=?", (hoy,)).fetchone()["t"]
     conn.close()
     return render_template("inicio.html", activos=activos, caja_hoy=int(caja_hoy))
@@ -178,7 +186,7 @@ def entrada(tipo):
                 conn.close()
                 return redirect(url_for("salida_form", placa=placa))
             ticket_num = get_consecutivo(conn)
-            ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            ahora = get_colombia_time().strftime("%Y-%m-%d %H:%M:%S")
             conn.execute("INSERT INTO parqueadero (placa, tipo, hora_entrada, ticket_num, marca, celular, cajero) VALUES (?,?,?,?,?,?,?)",
                          (placa, tipo, ahora, ticket_num, marca, celular, session.get("usuario")))
             conn.execute("INSERT OR REPLACE INTO clientes_frecuentes (placa, marca, celular) VALUES (?,?,?)",
