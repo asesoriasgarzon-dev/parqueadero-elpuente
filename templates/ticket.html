@@ -6,106 +6,128 @@
   <div class="ticket-wrap" id="ticketPrint">
     
     <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 5px;">
-      <img src="{{ url_for('static', filename='img/carro.png') }}" style="width: 40px; height: auto;">
+      <img src="{{ url_for('static', filename='img/carro.png') }}" style="width: 45px; height: auto;">
       <img src="{{ url_for('static', filename='img/P.png') }}" style="width: 55px; height: auto;">
-      <img src="{{ url_for('static', filename='img/moto.png') }}" style="width: 40px; height: auto;">
+      <img src="{{ url_for('static', filename='img/moto.png') }}" style="width: 45px; height: auto;">
     </div>
 
     <hr style="border: 0; border-top: 2px dashed #000; width: 100%; margin: 5px 0;">
 
-    <h2 style="margin: 5px 0 0 0; text-align: center; font-size: 1.3rem; font-weight: bold; width: 100%; font-family: 'Arial Black', Gadget, sans-serif;">
-      PARQUEADERO EL PUENTE
-    </h2>
-    <div style="text-align:center; font-size: 0.7rem; line-height: 1.2; width: 100%; margin-bottom: 10px;">
-      Nit: 1.151.952.649-3 · No Resp. de IVA<br>
-      Cra 4 # 5-26 · Tel: 3152775288<br>
-      Horario: 7:00am - 7:00pm
+    <div style="text-align: center; width: 100%;">
+      <h2 style="margin: 0; font-size: 1.4rem; font-weight: 900; font-family: 'Arial Black', sans-serif; letter-spacing: -1px;">PARQUEADERO EL PUENTE</h2>
+      <div style="font-size: 0.75rem; line-height: 1.2; margin-top: 2px; font-family: 'Courier New', monospace;">
+        Nit: 1.151.952.649-3 · No Resp. de IVA<br>
+        Cra 4 # 5-26 · Tel: 3152775288<br>
+        Horario: 7:00am - 7:00pm
+      </div>
     </div>
 
-    <div style="text-align:center; font-weight:bold; font-size: 1rem; border: 1px solid #000; background: #000; color: #fff; padding: 5px; margin-bottom: 10px; width: 100%; box-sizing: border-box; letter-spacing: 2px;">
-      ◀ TICKET DE {% if tipo == 'entrada' %}ENTRADA{% else %}SALIDA{% endif %} ▶
+    <div style="text-align:center; font-weight:bold; font-size: 1.1rem; border: 2px solid #000; background: #000; color: #fff; padding: 5px; margin: 12px 0; width: 100%; box-sizing: border-box; letter-spacing: 2px; font-family: 'Courier New', monospace;">
+      &#9664; TICKET DE {{ tipo.upper() }} &#9654;
     </div>
 
-    <div style="border: 1.5px solid #000; border-radius: 5px; width: 100%; padding: 3px; text-align: center; margin-bottom: 8px; font-weight: bold; font-size: 1.1rem;">
+    <div style="border: 2px solid #000; width: 100%; padding: 5px; text-align: center; margin-bottom: 8px; font-weight: bold; font-size: 1.3rem; box-sizing: border-box; font-family: 'Courier New', monospace;">
       N° {{ "%05d"|format(reg.ticket_num) }}
     </div>
     
-    <div style="border: 2px solid #000; border-radius: 5px; margin-bottom: 10px; padding: 10px; text-align: center; width: 100%; box-sizing: border-box;">
-      <span style="font-size: 3rem; font-weight: 900; letter-spacing: 5px; font-family: monospace;">
+    <div style="border: 2px solid #000; margin-bottom: 12px; padding: 10px; text-align: center; width: 100%; box-sizing: border-box;">
+      <span style="font-size: 3.5rem; font-weight: 900; letter-spacing: 5px; font-family: 'Courier New', Courier, monospace;">
         {{ reg.placa }}
       </span>
     </div>
 
-    <div style="width: 100%; font-size: 0.9rem;">
-      <div style="display: flex; justify-content: space-between; border-bottom: 1px dotted #ccc; padding: 2px 0;">
-        <span>Tipo:</span><span>{{ reg.tipo|capitalize }}</span>
+    <div style="width: 100%; font-size: 1rem; font-family: 'Courier New', Courier, monospace;">
+      <div style="display: flex; justify-content: space-between; border-bottom: 1px dotted #000; padding: 4px 0;">
+        <span>Tipo:</span><span style="font-weight: bold;">{{ reg.tipo|capitalize }}</span>
       </div>
-      <div style="display: flex; justify-content: space-between; border-bottom: 1px dotted #ccc; padding: 2px 0;">
-        <span>Marca:</span><span>{{ reg.marca or '---' }}</span>
+      <div style="display: flex; justify-content: space-between; border-bottom: 1px dotted #000; padding: 4px 0;">
+        <span>Marca:</span><span style="font-weight: bold;">{{ reg.marca or '---' }}</span>
       </div>
-      <div style="display: flex; justify-content: space-between; border-bottom: 1px dotted #ccc; padding: 2px 0;">
-        <span>Celular:</span><span>{{ reg.celular or '---' }}</span>
+      <div style="display: flex; justify-content: space-between; border-bottom: 1px dotted #000; padding: 4px 0;">
+        <span>Celular:</span><span style="font-weight: bold;">{{ reg.celular or '---' }}</span>
       </div>
 
-      <hr style="border: 0; border-top: 1px dashed #000; margin: 10px 0;">
+      <div style="margin: 10px 0;">
+        <div style="display: flex; justify-content: space-between; padding: 2px 0;">
+          <span>Entrada:</span><span style="font-weight: bold;">{{ reg.hora_entrada }}</span>
+        </div>
+        {% if tipo == 'salida' %}
+        <div style="display: flex; justify-content: space-between; padding: 2px 0;">
+          <span>Salida:</span><span style="font-weight: bold;">{{ reg.hora_salida }}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; padding: 2px 0;">
+          <span>Tiempo total:</span><span style="font-weight: bold;">{{ tiempo_str }}</span>
+        </div>
+        {% endif %}
+      </div>
 
-      <div style="display: flex; justify-content: space-between;">
-        <span>Entrada:</span><span>{{ reg.hora_entrada }}</span>
-      </div>
-      
-      {% if tipo == 'salida' %}
-      <div style="display: flex; justify-content: space-between;">
-        <span>Salida:</span><span>{{ reg.hora_salida }}</span>
-      </div>
-      <div style="display: flex; justify-content: space-between; font-weight: bold;">
-        <span>Tiempo total:</span><span>{{ tiempo_str }}</span>
-      </div>
-      {% endif %}
-
-      <div style="border: 1.5px solid #000; margin: 15px 0; padding: 8px; text-align: center; width: 100%; box-sizing: border-box;">
+      <div style="border: 2px solid #000; margin: 15px 0; padding: 10px; text-align: center; width: 100%; box-sizing: border-box;">
         {% if tipo == 'entrada' %}
-          <div style="font-size: 1rem; font-weight: bold;">
+          <div style="font-size: 1.1rem; font-weight: bold;">
             {% if reg.tipo == 'carro' %}$4.000{% else %}$2.500{% endif %} / hora o fracción
           </div>
-          <div style="font-size: 0.8rem;">Día completo: $13.000</div>
+          <div style="font-size: 1rem; margin-top: 3px;">
+            Día completo: <b>{% if reg.tipo == 'carro' %}$13.000{% else %}$7.000{% endif %}</b>
+          </div>
         {% else %}
-          <div style="font-size: 0.9rem; text-transform: uppercase;">Total a pagar</div>
-          <div style="font-size: 2rem; font-weight: bold;">${{ "{:,}".format(reg.valor|int) }}</div>
+          <div style="font-size: 0.9rem; text-transform: uppercase; font-weight: bold; letter-spacing: 1px;">TOTAL A PAGAR</div>
+          <div style="font-size: 2.5rem; font-weight: 900; margin-top: 5px;">
+            ${{ "{:,.0f}".format(reg.valor|int).replace(',', '.') }}
+          </div>
         {% endif %}
       </div>
     </div>
 
-    <div style="text-align: center; font-size: 0.7rem; width: 100%;">
-      <div style="margin-bottom: 10px;">Atendido por: {{ reg.cajero or 'admin' }}</div>
+    <div style="text-align: center; font-size: 0.75rem; width: 100%; font-family: 'Courier New', monospace;">
+      <div style="margin-bottom: 8px;">Atendido por: {{ reg.cajero or 'admin' }}</div>
       
       <hr style="border: 0; border-top: 1px dashed #000; margin: 10px 0;">
       
       <div style="text-align: left; line-height: 1.3;">
-        <b>— REGLAMENTO —</b><br>
+        <b style="display: block; text-align: center; margin-bottom: 3px;">— REGLAMENTO —</b>
         El vehículo se entregará al portador del recibo. No aceptamos órdenes telefónicas ni escritas. No respondemos por objetos ni daños de terceros.
       </div>
-    </div>
 
-    <div style="margin-top: 15px; border-top: 3px double #000; padding-top: 5px; text-align: center; font-size: 0.7rem; width: 100%;">
-      Gracias por su visita<br>
-      Sistema v2.0 · asesoriasgarzon@gmail.com
+      <div style="margin-top: 15px; border-top: 3px double #000; padding-top: 8px; text-align: center;">
+        Gracias por su visita<br>
+        Sistema v2.0 · asesoriasgarzon@gmail.com
+      </div>
     </div>
   </div>
 </div>
 
-<div class="ticket-actions" style="text-align: center; margin-top: 20px;">
-  <button onclick="window.print()" class="btn btn-primary" style="padding: 10px 30px; border-radius: 20px; cursor: pointer; background: #00d28d; border: none; font-weight: bold;">🖨️ Imprimir</button>
+<div class="ticket-actions" style="text-align: center; margin-top: 20px; padding-bottom: 40px;">
+  <button onclick="window.print()" class="btn-print">🖨️ Imprimir Ticket</button>
   <br><br>
-  <a href="{{ url_for('inicio') }}" style="text-decoration: none; color: #888; font-size: 0.8rem;">← Volver al inicio</a>
+  <a href="{{ url_for('inicio') }}" style="text-decoration: none; color: #888; font-size: 0.9rem;">← Volver al Menú Principal</a>
 </div>
 
 <style>
   .ticket-container { display: flex; justify-content: center; padding: 20px; background-color: #1a1a1b; }
-  .ticket-wrap { background: white; width: 330px; padding: 20px; display: flex; flex-direction: column; align-items: center; font-family: 'Courier New', Courier, monospace; }
+  .ticket-wrap { 
+    background: white; 
+    width: 350px; 
+    padding: 25px; 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    color: #000;
+  }
+  .btn-print { 
+    padding: 12px 40px; 
+    border-radius: 30px; 
+    cursor: pointer; 
+    background: #00d28d; 
+    border: none; 
+    font-weight: bold; 
+    color: white; 
+    font-size: 1rem; 
+  }
+
   @media print {
     .navbar, .ticket-actions { display: none !important; }
     .ticket-container { padding: 0; background: white; }
-    .ticket-wrap { width: 100%; box-shadow: none; padding: 0; }
+    .ticket-wrap { width: 100%; padding: 0; margin: 0; }
     body { background: white !important; }
   }
 </style>
