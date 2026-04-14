@@ -7,12 +7,6 @@ import pytz
 app = Flask(__name__)
 app.secret_key = "parqueadero_el_puente_2026"
 
-# ─── CONFIGURACIÓN DE ZONA HORARIA (PUNTO 2) ───
-def get_colombia_time():
-    tz = pytz.timezone('America/Bogota')
-    return datetime.now(tz)
-# ──────────────────────────────────────────────
-
 # ─── CONFIGURACIÓN DE RUTA PARA RAILWAY VOLUME ───
 # Si la carpeta /data existe (en Railway), usamos esa ruta. 
 # Si no (en tu PC), usa la ruta local.
@@ -25,6 +19,11 @@ else:
 
 if not os.path.exists(BACKUP_DIR):
     os.makedirs(BACKUP_DIR)
+
+# ─── CONFIGURACIÓN DE ZONA HORARIA (PUNTO 2) ───
+def get_colombia_time():
+    tz = pytz.timezone('America/Bogota')
+    return datetime.now(tz)
 
 # ─── Base de datos ────────────────────────────────────────────────
 def get_db():
