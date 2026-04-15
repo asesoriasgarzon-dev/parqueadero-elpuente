@@ -31,10 +31,44 @@
 </div>
 
 <div style="margin-top:2rem">
-  <div class="page-title" style="font-size:1.2rem;margin-bottom:1rem">Registrar salida rápida</div>
-  <form action="{{ url_for('salida_form') }}" method="GET" class="search-bar">
-    <input name="placa" class="form-control" placeholder="Ingrese placa..." style="text-transform:uppercase">
-    <button type="submit" class="btn btn-danger">Registrar Salida</button>
-  </form>
+  <div class="page-title" style="font-size:1.2rem;margin-bottom:1rem">Búsqueda Inteligente (Entrada/Salida)</div>
+  <div class="search-bar">
+    <input id="input_placa" class="form-control" placeholder="INGRESE PLACA..." style="text-transform:uppercase">
+    <button onclick="buscarPlacaInteligente()" class="btn btn-primary">Procesar</button>
+  </div>
 </div>
+
+<script>
+function buscarPlacaInteligente() {
+    const placa = document.getElementById('input_placa').value.trim().toUpperCase();
+    if (!placa) {
+        alert("Por favor ingrese una placa");
+        return;
+    }
+
+    // Consultamos a la API que ya tienes en app.py
+    fetch(`/buscar_placa?placa=${placa}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'activo') {
+                // Si el vehículo ya está en el patio, vamos a la pantalla de cobro
+                window.location.href = `/salida?placa=${placa}`;
+            } else {
+                // Si no está activo, asumimos que va a entrar. 
+                // Lo mandamos a la entrada de moto por defecto (puedes cambiarlo a carro si prefieres)
+                // Pero le pasamos la placa para que no tenga que escribirla de nuevo
+                window.location.href = `/entrada/moto?placa=${placa}`;
+            }
+        })
+        .catch(error => console.error('Error:', error));
+}
+
+// Permitir que funcione al hundir "Enter"
+document.getElementById('input_placa').addEventListener('keypress', function (e) {
+    if (e.key === 'Enter') {
+        buscarPlacaInteligente();
+    }
+});
+</script>
+
 {% endblock %}
