@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Perfil – El Puente{% endblock %}
+{% block content %}
+<div class="page-title">Mi <span>Perfil</span></div>
+
+<div style="max-width: 400px; margin: 0 auto;">
+    <div class="stat-card" style="border-top-color: var(--accent); padding: 2rem;">
+        <h3 style="color: white; margin-bottom: 1.5rem; text-align: center;">Cambiar Contraseña</h3>
+        
+        {% if mensaje %}
+            <div style="padding: 10px; margin-bottom: 1rem; border-radius: 5px; text-align: center; 
+                        background-color: {{ '#d4edda' if mensaje[0] == 'success' else '#f8d7da' }}; 
+                        color: {{ '#155724' if mensaje[0] == 'success' else '#721c24' }};">
+                {{ mensaje[1] }}
+            </div>
+        {% endif %}
+
+        <form method="POST">
+            <div style="margin-bottom: 1rem;">
+                <label style="display: block; color: var(--text2); margin-bottom: 0.5rem;">Nueva Contraseña:</label>
+                <input type="password" name="password" class="form-control" required style="width: 100%;">
+            </div>
+            <div style="margin-bottom: 1.5rem;">
+                <label style="display: block; color: var(--text2); margin-bottom: 0.5rem;">Confirmar Contraseña:</label>
+                <input type="password" name="confirmar_password" class="form-control" required style="width: 100%;">
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%;">Actualizar Contraseña</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
