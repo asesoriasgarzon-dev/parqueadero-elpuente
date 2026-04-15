@@ -478,14 +478,16 @@ def api_valor_estimado():
     # 2. Obtenemos la hora actual de Colombia
     ahora_co = get_colombia_time()
     
-    # 3. Calculamos los minutos reales (Colombia vs Colombia)
+   # 3. Calculamos los minutos reales (Colombia vs Colombia)
     mins = int(max(0, (ahora_co - entrada_dt).total_seconds() // 60))
     
     h, m = divmod(mins, 60)
     tarifas = get_tarifas()
     valor = int(calcular_valor(reg["tipo"], mins, tarifas))
+    
+    return jsonify({"tiempo": f"{h}h {m}m", "valor": valor, "mins": mins})
 
-    # ─── Perfil y Seguridad ──────────────────────────────────────────
+# ─── Perfil y Seguridad ──────────────────────────────────────────
 @app.route("/perfil", methods=["GET", "POST"])
 @login_required
 def perfil():
@@ -507,7 +509,18 @@ def perfil():
             mensaje = ("error", "Las contraseñas no coinciden")
             
     return render_template("perfil.html", mensaje=mensaje)
-  
-    return jsonify({"tiempo": f"{h}h {m}m", "valor": valor, "mins": mins})
+
+# ─── Limpiar Pruebas (Solo Admin) ────────────────────────────────
+@app.route("/admin/limpiar_pruebas")
+@login_required
+@admin_required
+def limpiar_pruebas():
+    conn = get_db()
+    conn.execute("DELETE FROM parqueadero")
+    conn.execute("UPDATE consecutivo SET numero=0 WHERE id=1")
+    conn.commit()
+    conn.close()
+    return redirect(url_for('inicio'))
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)
