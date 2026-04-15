@@ -2,15 +2,26 @@
 {% block title %}Histórico – El Puente{% endblock %}
 {% block content %}
 <div class="page-title">Histórico <span>de Movimientos</span></div>
+
 <form method="GET" class="search-bar">
   <input name="placa" class="form-control" placeholder="Buscar por placa..." value="{{ placa }}" style="text-transform:uppercase">
   <button type="submit" class="btn btn-primary">Buscar</button>
   {% if placa %}<a href="{{ url_for('historico') }}" class="btn btn-secondary">Limpiar</a>{% endif %}
 </form>
+
 <div class="table-wrap">
   <table>
     <thead>
-      <tr><th>Ticket</th><th>Placa</th><th>Tipo</th><th>Marca</th><th>Entrada</th><th>Salida</th><th>Método</th><th>Valor</th></tr>
+      <tr>
+        <th>Ticket</th>
+        <th>Placa</th>
+        <th>Tipo</th>
+        <th>Marca</th>
+        <th>Entrada</th>
+        <th>Salida</th>
+        <th>Método</th>
+        <th>Valor</th>
+      </tr>
     </thead>
     <tbody>
     {% for r in regs %}
@@ -23,8 +34,12 @@
       <td style="font-size:.82rem">{{ r.hora_salida or '—' }}</td>
       <td>{{ r.metodo_pago or '---' }}</td>
       <td>
-        {% if r.valor %}<span style="color:var(--accent);font-weight:700">${{ "{:,}".format(r.valor|int) }}</span>
-        {% else %}<span class="badge badge-warn">En patio</span>{% endif %}
+        {# CAMBIO AQUÍ: Validamos por hora_salida, no por valor #}
+        {% if r.hora_salida %}
+          <span style="color:var(--accent);font-weight:700">${{ "{:,}".format(r.valor|int) }}</span>
+        {% else %}
+          <span class="badge badge-warn" style="background:#f39c12; color:white; padding:2px 6px; border-radius:4px; font-size:0.8rem;">En patio</span>
+        {% endif %}
       </td>
     </tr>
     {% else %}
