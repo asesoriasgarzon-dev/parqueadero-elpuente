@@ -9,7 +9,7 @@
 <body>
     {% if session.usuario %}
     <nav class="navbar">
-        <a class="navbar-brand" href="{{ url_for('inicio') }}">🅿️ <span>El Puente</span></a>
+        <a class="navbar-brand" href="{{ url_for('inicio') }}">辦 <span>El Puente</span></a>
         
         <div class="nav-links">
             <a href="{{ url_for('inicio') }}" {% if request.endpoint == 'inicio' %}class="active"{% endif %}>Inicio</a>
@@ -19,6 +19,7 @@
             <a href="{{ url_for('mensualidades') }}" {% if request.endpoint == 'mensualidades' %}class="active"{% endif %}>Mensualidades</a>
             
             {% if session.rol == 'admin' %}
+            <a href="{{ url_for('estadisticas') }}" {% if request.endpoint == 'estadisticas' %}class="active"{% endif %}>Estadísticas</a>
             <a href="{{ url_for('tarifas') }}" {% if request.endpoint == 'tarifas' %}class="active"{% endif %}>Tarifas</a>
             <a href="{{ url_for('backup') }}">💾 Backup</a>
             {% endif %}
