@@ -7,6 +7,10 @@ from functools import wraps
 app = Flask(__name__)
 app.secret_key = "parqueadero_el_puente_2026"
 
+POLIZA_NUM = "C-250004843"
+CERTIFICADO_NUM = "10402089"
+VIGENCIA_POLIZA = "Marzo 14 de 2026 a Marzo 14 de 2027"
+
 def get_colombia_time():
     # Creamos la zona horaria de Bogotá
     tz = pytz.timezone('America/Bogota')
@@ -288,7 +292,14 @@ def ticket_entrada(ticket):
     reg = conn.execute("SELECT * FROM parqueadero WHERE ticket_num=?", (ticket,)).fetchone()
     conn.close()
     tarifas = get_tarifas()
-    return render_template("ticket.html", reg=reg, tipo="entrada", tarifas=tarifas)
+    # PASAMOS LOS DATOS DE LA PÓLIZA AQUÍ
+    return render_template("ticket.html", 
+                           reg=reg, 
+                           tipo="entrada", 
+                           tarifas=tarifas,
+                           poliza=POLIZA_NUM, 
+                           certificado=CERTIFICADO_NUM, 
+                           vigencia=VIGENCIA_POLIZA)
 
 @app.route("/ticket/salida/<int:ticket>")
 @login_required
@@ -298,8 +309,6 @@ def ticket_salida(ticket):
     conn.close()
     
     if reg and reg["hora_entrada"] and reg["hora_salida"]:
-        # Aquí no necesitamos get_colombia_time porque AMBAS horas ya están guardadas 
-        # en la base de datos como texto. Solo las restamos.
         entrada_dt = datetime.strptime(reg["hora_entrada"], "%Y-%m-%d %H:%M:%S")
         salida_dt = datetime.strptime(reg["hora_salida"], "%Y-%m-%d %H:%M:%S")
         dur = salida_dt - entrada_dt
@@ -308,7 +317,15 @@ def ticket_salida(ticket):
         tiempo_str = f"{h}h {m}m"
     else:
         tiempo_str = ""
-    return render_template("ticket.html", reg=reg, tipo="salida", tiempo_str=tiempo_str)
+    
+    # TAMBIÉN LOS PASAMOS EN LA SALIDA
+    return render_template("ticket.html", 
+                           reg=reg, 
+                           tipo="salida", 
+                           tiempo_str=tiempo_str,
+                           poliza=POLIZA_NUM, 
+                           certificado=CERTIFICADO_NUM, 
+                           vigencia=VIGENCIA_POLIZA)
 
 # ─── Clientes activos ─────────────────────────────────────────────
 @app.route("/clientes")
@@ -509,6 +526,58 @@ def perfil():
             mensaje = ("error", "Las contraseñas no coinciden")
             
     return render_template("perfil.html", mensaje=mensaje)
+
+# ─── Gestión de Usuarios (Solo Admin) ────────────────────────────
+@app.route("/usuarios")
+@login_required
+@admin_required
+def gestion_usuarios():
+    conn = get_db()
+    usuarios = conn.execute("SELECT id, username, rol FROM usuarios").fetchall()
+    conn.close()
+    return render_template("usuarios.html", usuarios=usuarios)
+
+@app.route("/usuarios/reset/<int:id>")
+@login_required
+@admin_required
+def reset_password(id):
+    conn = get_db()
+    # Reseteo a clave genérica para que el operador la cambie luego en su perfil
+    conn.execute("UPDATE usuarios SET password=? WHERE id=?", ("cambiar123", id))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('gestion_usuarios'))
+
+# ─── Estadísticas (Solo Admin) ───────────────────────────────────
+@app.route("/estadisticas")
+@login_required
+@admin_required
+def estadisticas():
+    conn = get_db()
+    # Ingresos últimos 7 días
+    query_semana = """
+        SELECT date(hora_salida) as fecha, SUM(valor) as total
+        FROM parqueadero
+        WHERE hora_salida IS NOT NULL 
+        AND date(hora_salida) > date('now', '-7 days')
+        GROUP BY date(hora_salida)
+        ORDER BY fecha ASC
+    """
+    datos = conn.execute(query_semana).fetchall()
+    
+    # Ingresos por tipo
+    por_tipo = conn.execute("""
+        SELECT tipo, SUM(valor) as total 
+        FROM parqueadero 
+        WHERE hora_salida IS NOT NULL
+        GROUP BY tipo
+    """).fetchall()
+    conn.close()
+    
+    labels = [d['fecha'] for d in datos]
+    valores = [d['total'] for d in datos]
+    
+    return render_template("estadisticas.html", labels=labels, valores=valores, por_tipo=por_tipo)
 
 # ─── Limpiar Pruebas (Solo Admin) ────────────────────────────────
 @app.route("/admin/limpiar_pruebas")
