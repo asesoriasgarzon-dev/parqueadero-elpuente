@@ -356,14 +356,22 @@ def historico():
 @app.route("/caja")
 @login_required
 def caja():
-    # CAMBIO: Usamos get_colombia_time() para que la fecha por defecto sea la de Cali
     ahora_co = get_colombia_time()
     fecha_hoy = ahora_co.strftime("%Y-%m-%d")
     
-    fecha = request.args.get("fecha", fecha_hoy)
+    # Recibimos ambos parámetros, si no existen, por defecto es hoy
+    fecha_inicio = request.args.get("fecha_inicio", fecha_hoy)
+    fecha_fin = request.args.get("fecha_fin", fecha_hoy)
     
     conn = get_db()
-    regs = conn.execute("SELECT * FROM parqueadero WHERE date(hora_salida)=? ORDER BY hora_salida DESC", (fecha,)).fetchall()
+    # Cambiamos la consulta SQL para que use un rango (BETWEEN)
+    query = """
+        SELECT * FROM parqueadero 
+        WHERE date(hora_salida) BETWEEN ? AND ? 
+        ORDER BY hora_salida DESC
+    """
+    regs = conn.execute(query, (fecha_inicio, fecha_fin)).fetchall()
+    
     total = sum(r["valor"] for r in regs if r["valor"])
     por_metodo = {}
     for r in regs:
@@ -371,8 +379,10 @@ def caja():
         metodo_base = m.split(" - ")[0]
         por_metodo[metodo_base] = por_metodo.get(metodo_base, 0) + (r["valor"] or 0)
     conn.close()
-    return render_template("caja.html", regs=regs, total=int(total), fecha=fecha, por_metodo=por_metodo)
-
+    
+    return render_template("caja.html", regs=regs, total=int(total), 
+                           fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, 
+                           por_metodo=por_metodo)
 # ─── Mensualidades ────────────────────────────────────────────────
 @app.route("/mensualidades", methods=["GET","POST"])
 @login_required
