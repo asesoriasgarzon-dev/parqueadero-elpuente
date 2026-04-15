@@ -507,11 +507,7 @@ def perfil():
             mensaje = ("error", "Las contraseñas no coinciden")
             
     return render_template("perfil.html", mensaje=mensaje)
-
-# Colócalo justo antes de esto:
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=False)
-    
+  
     return jsonify({"tiempo": f"{h}h {m}m", "valor": valor, "mins": mins})
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)
