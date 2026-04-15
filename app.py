@@ -109,6 +109,13 @@ def admin_required(f):
     return decorated
 
 # ─── Helpers ─────────────────────────────────────────────────────
+def get_tarifas():
+    conn = get_db()
+    regs = conn.execute("SELECT tipo, valor_hora, valor_dia, minutos_cortesia FROM tarifas").fetchall()
+    conn.close()
+    # Convertimos a un diccionario para que sea fácil de usar: {'carro': {...}, 'moto': {...}}
+    return {r["tipo"]: dict(r) for r in regs}
+
 def calcular_valor(tipo, minutos_totales, tarifas):
     t = tarifas[tipo]
     cortesia = t["minutos_cortesia"]
