@@ -112,33 +112,33 @@ def admin_required(f):
 def calcular_valor(tipo, minutos_totales, tarifas):
     t = tarifas[tipo]
     cortesia = t["minutos_cortesia"]
+    
+    # 1. Validación de cortesía inicial
     if minutos_totales <= cortesia:
         return 0
+        
     if tipo == "carro":
+        # Primera hora o fracción (hasta el minuto 60)
         if minutos_totales <= 60:
-            total = t["valor_hora"]
+            total = t["valor_hora"]  # $4.000
         else:
+            # Calculamos las horas adicionales (fracciones de 60 min)
+            # math.ceil redondea hacia arriba cualquier minuto excedente
             fracciones = math.ceil((minutos_totales - 60) / 60)
+            # Primera hora ($4.000) + Horas extras ($3.500 c/u)
             total = t["valor_hora"] + fracciones * (t["valor_hora"] - 500)
-        return min(total, t["valor_dia"])
+        
+        # Eliminamos el min(total, t["valor_dia"]) para que NO tenga tope
+        return total 
+
     else:
+        # Lógica para motos: cobro lineal por hora o fracción
         total = math.ceil(minutos_totales / 60) * t["valor_hora"]
-        return min(total, t["valor_dia"])
-
-def get_tarifas():
-    conn = get_db()
-    rows = conn.execute("SELECT tipo, valor_hora, valor_dia, minutos_cortesia FROM tarifas").fetchall()
-    conn.close()
-    return {r["tipo"]: dict(r) for r in rows}
-
-def get_consecutivo(conn):
-    row = conn.execute("SELECT numero FROM consecutivo WHERE id=1").fetchone()
-    num = (row["numero"] if row else 0) + 1
-    conn.execute("UPDATE consecutivo SET numero=? WHERE id=1", (num,))
-    return num
+        
+        # También eliminamos el tope para las motos
+        return total
 
 # ─── Rutas ───────────────────────────────────────────────────────
-
 @app.route("/login", methods=["GET","POST"])
 def login():
     error = None
