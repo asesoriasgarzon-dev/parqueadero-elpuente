@@ -1,35 +1,47 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{% block title %}Parqueadero El Puente{% endblock %}</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Parqueadero El Puente{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-{% if session.usuario %}
-<nav class="navbar">
-  <a class="navbar-brand" href="{{ url_for('inicio') }}">🅿️ <span>El Puente</span></a>
-  <div class="nav-links">
-    <a href="{{ url_for('inicio') }}" {% if request.endpoint=='inicio' %}class="active"{% endif %}>Inicio</a>
-    <a href="{{ url_for('clientes') }}" {% if request.endpoint=='clientes' %}class="active"{% endif %}>Activos</a>
-    <a href="{{ url_for('historico') }}" {% if request.endpoint=='historico' %}class="active"{% endif %}>Histórico</a>
-    <a href="{{ url_for('caja') }}" {% if request.endpoint=='caja' %}class="active"{% endif %}>Caja</a>
-    <a href="{{ url_for('mensualidades') }}" {% if request.endpoint=='mensualidades' %}class="active"{% endif %}>Mensualidades</a>
-    {% if session.rol == 'admin' %}
-    <a href="{{ url_for('tarifas') }}" {% if request.endpoint=='tarifas' %}class="active"{% endif %}>Tarifas</a>
-    <a href="{{ url_for('backup') }}">💾 Backup</a>
+    {% if session.usuario %}
+    <nav class="navbar">
+        <a class="navbar-brand" href="{{ url_for('inicio') }}">🅿️ <span>El Puente</span></a>
+        
+        <div class="nav-links">
+            <a href="{{ url_for('inicio') }}" {% if request.endpoint == 'inicio' %}class="active"{% endif %}>Inicio</a>
+            <a href="{{ url_for('clientes') }}" {% if request.endpoint == 'clientes' %}class="active"{% endif %}>Activos</a>
+            <a href="{{ url_for('historico') }}" {% if request.endpoint == 'historico' %}class="active"{% endif %}>Histórico</a>
+            <a href="{{ url_for('caja') }}" {% if request.endpoint == 'caja' %}class="active"{% endif %}>Caja</a>
+            <a href="{{ url_for('mensualidades') }}" {% if request.endpoint == 'mensualidades' %}class="active"{% endif %}>Mensualidades</a>
+            
+            {% if session.rol == 'admin' %}
+            <a href="{{ url_for('tarifas') }}" {% if request.endpoint == 'tarifas' %}class="active"{% endif %}>Tarifas</a>
+            <a href="{{ url_for('backup') }}">💾 Backup</a>
+            {% endif %}
+        </div>
+
+        <div class="nav-user">
+            <span style="margin-right: 10px;">👤 <b>{{ session.usuario }}</b> <small>({{ session.rol }})</small></span>
+            
+            <a href="{{ url_for('perfil') }}" 
+               {% if request.endpoint == 'perfil' %}class="active"{% endif %} 
+               style="margin-right: 15px; text-decoration: none; color: var(--text2);">
+               ⚙️ Perfil
+            </a>
+
+            <a href="{{ url_for('logout') }}" style="color: #ff4d4d; font-weight: bold; text-decoration: none;">Salir</a>
+        </div>
+    </nav>
     {% endif %}
-  </div>
-  <div class="nav-user">
-    👤 {{ session.usuario }} ({{ session.rol }})
-    <a href="{{ url_for('logout') }}">Salir</a>
-  </div>
-</nav>
-{% endif %}
-<div class="container">
-  {% block content %}{% endblock %}
-</div>
-<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>
