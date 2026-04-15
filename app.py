@@ -484,6 +484,33 @@ def api_valor_estimado():
     h, m = divmod(mins, 60)
     tarifas = get_tarifas()
     valor = int(calcular_valor(reg["tipo"], mins, tarifas))
+
+    # ─── Perfil y Seguridad ──────────────────────────────────────────
+@app.route("/perfil", methods=["GET", "POST"])
+@login_required
+def perfil():
+    mensaje = None
+    if request.method == "POST":
+        nueva_pass = request.form.get("password").strip()
+        confirmar_pass = request.form.get("confirmar_password").strip()
+        
+        if not nueva_pass:
+            mensaje = ("error", "La contraseña no puede estar vacía")
+        elif nueva_pass == confirmar_pass:
+            conn = get_db()
+            conn.execute("UPDATE usuarios SET password=? WHERE username=?", 
+                         (nueva_pass, session["usuario"]))
+            conn.commit()
+            conn.close()
+            mensaje = ("success", "¡Contraseña actualizada con éxito!")
+        else:
+            mensaje = ("error", "Las contraseñas no coinciden")
+            
+    return render_template("perfil.html", mensaje=mensaje)
+
+# Colócalo justo antes de esto:
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=False)
     
     return jsonify({"tiempo": f"{h}h {m}m", "valor": valor, "mins": mins})
 if __name__ == "__main__":
