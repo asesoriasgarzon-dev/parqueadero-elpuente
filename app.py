@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, send_file
 import sqlite3, os, math, shutil
 import pytz
+import calender
 from datetime import datetime, timedelta
 from functools import wraps
 
@@ -568,7 +569,16 @@ def reset_password(id):
 @login_required
 @admin_required
 def estadisticas():
+    # 1. IMPORTANTE: Necesitamos importar calendar para el cálculo
+    import calendar
+    
     conn = get_db()
+    
+    # 2. CÁLCULO DEL SEMÁFORO (Días restantes del mes)
+    ahora = get_colombia_time()
+    ultimo_dia = calendar.monthrange(ahora.year, ahora.month)[1]
+    dias_restantes = ultimo_dia - ahora.day
+    
     # Ingresos últimos 7 días
     query_semana = """
         SELECT date(hora_salida) as fecha, SUM(valor) as total
@@ -592,6 +602,12 @@ def estadisticas():
     labels = [d['fecha'] for d in datos]
     valores = [d['total'] for d in datos]
     
+    # 3. PASAR dias_restantes AL TEMPLATE
+    return render_template("estadisticas.html", 
+                           labels=labels, 
+                           valores=valores, 
+                           por_tipo=por_tipo, 
+                           dias_restantes=dias_restantes)    
     return render_template("estadisticas.html", labels=labels, valores=valores, por_tipo=por_tipo)
 
 # ─── Limpiar Pruebas (Solo Admin) ────────────────────────────────
