@@ -5,11 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Parqueadero El Puente{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
     {% if session.usuario %}
     <nav class="navbar">
-        <a class="navbar-brand" href="{{ url_for('inicio') }}">辦 <span>El Puente</span></a>
+        <a class="navbar-brand" href="{{ url_for('inicio') }}">
+            <i class="fas fa-bridge"></i> <span>El Puente</span>
+        </a>
         
         <div class="nav-links">
             <a href="{{ url_for('inicio') }}" {% if request.endpoint == 'inicio' %}class="active"{% endif %}>Inicio</a>
@@ -19,27 +22,46 @@
             <a href="{{ url_for('mensualidades') }}" {% if request.endpoint == 'mensualidades' %}class="active"{% endif %}>Mensualidades</a>
             
             {% if session.rol == 'admin' %}
-            <a href="{{ url_for('estadisticas') }}" {% if request.endpoint == 'estadisticas' %}class="active"{% endif %}>Estadísticas</a>
-            <a href="{{ url_for('tarifas') }}" {% if request.endpoint == 'tarifas' %}class="active"{% endif %}>Tarifas</a>
-            <a href="{{ url_for('backup') }}">💾 Backup</a>
+                <div class="admin-separator"></div>
+                <a href="{{ url_for('gestion_usuarios') }}" {% if request.endpoint == 'gestion_usuarios' %}class="active"{% endif %}>👥 Usuarios</a>
+                <a href="{{ url_for('estadisticas') }}" {% if request.endpoint == 'estadisticas' %}class="active"{% endif %}>📊 Estadísticas</a>
+                <a href="{{ url_for('tarifas') }}" {% if request.endpoint == 'tarifas' %}class="active"{% endif %}>⚙️ Tarifas</a>
+                <a href="{{ url_for('backup') }}" title="Copia de seguridad">💾 Backup</a>
             {% endif %}
         </div>
 
         <div class="nav-user">
-            <span style="margin-right: 10px;">👤 <b>{{ session.usuario }}</b> <small>({{ session.rol }})</small></span>
+            <div class="user-info">
+                <span class="user-name">👤 <b>{{ session.usuario }}</b></span>
+                <span class="user-role">{{ session.rol }}</span>
+            </div>
             
-            <a href="{{ url_for('perfil') }}" 
-               {% if request.endpoint == 'perfil' %}class="active"{% endif %} 
-               style="margin-right: 15px; text-decoration: none; color: var(--text2);">
-               ⚙️ Perfil
-            </a>
+            <div class="user-actions">
+                <a href="{{ url_for('perfil') }}" 
+                   {% if request.endpoint == 'perfil' %}class="active"{% endif %} 
+                   title="Mi Perfil">
+                   ⚙️
+                </a>
 
-            <a href="{{ url_for('logout') }}" style="color: #ff4d4d; font-weight: bold; text-decoration: none;">Salir</a>
+                <a href="{{ url_for('logout') }}" class="btn-exit" title="Cerrar Sesión">
+                    <i class="fas fa-sign-out-alt"></i> Salir
+                </a>
+            </div>
         </div>
     </nav>
     {% endif %}
 
     <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }}" style="margin-bottom: 20px; padding: 10px; border-radius: 5px; text-align: center;">
+                {{ message }}
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
         {% block content %}{% endblock %}
     </div>
 
