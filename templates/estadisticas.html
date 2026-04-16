@@ -3,6 +3,24 @@
 {% block content %}
 <div class="page-title">Panel de <span>Estadísticas</span></div>
 
+<div class="card" style="max-width: 800px; margin: auto; margin-bottom: 1.5rem; border-left: 5px solid {% if dias_restantes > 5 %}var(--accent){% elif dias_restantes > 2 %}var(--warn){% else %}var(--danger){% endif %};">
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+        <div>
+            <h4 style="margin: 0; color: var(--text);">Continuidad del Sistema</h4>
+            <p style="font-size: 0.8rem; color: var(--text2); margin: 3px 0 0 0;">Ciclo de créditos mensual de Railway</p>
+        </div>
+        <div style="text-align: right;">
+            <span class="badge {% if dias_restantes > 5 %}badge-green{% elif dias_restantes > 2 %}badge-warn{% else %}badge-red{% endif %}" 
+                  style="font-size: 0.9rem; padding: 0.5rem 1rem; border-radius: 8px;">
+                ● {{ "SISTEMA SEGURO" if dias_restantes > 5 else "REVISAR CRÉDITOS" if dias_restantes > 2 else "RIESGO DE CORTE" }}
+            </span>
+            <div style="font-size: 0.75rem; color: var(--text2); margin-top: 5px;">
+                Faltan <b>{{ dias_restantes }} días</b> para el cierre de ciclo
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="card" style="max-width: 800px; margin: auto; margin-bottom: 2rem;">
     <h3>💰 Ingresos por Tipo de Vehículo</h3>
     <div style="display: flex; justify-content: space-around; padding: 20px;">
@@ -40,7 +58,20 @@
         },
         options: {
             responsive: true,
-            scales: { y: { beginAtZero: true } }
+            scales: { 
+                y: { 
+                    beginAtZero: true,
+                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                    ticks: { color: '#8891a8' }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { color: '#8891a8' }
+                }
+            },
+            plugins: {
+                legend: { labels: { color: '#e8eaf0', font: { family: 'Barlow' } } }
+            }
         }
     });
 </script>
