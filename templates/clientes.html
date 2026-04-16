@@ -30,7 +30,12 @@
         ${{ "{:,.0f}".format(item.valor_est|int).replace(',', '.') }}
       </td>
       <td>
-        <a href="{{ url_for('salida_form', placa=item.reg.placa) }}" class="btn btn-danger btn-sm">Salida</a>
+        <div style="display: flex; gap: 5px;">
+            <a href="{{ url_for('ticket_entrada', ticket=item.reg.ticket_num) }}" class="btn btn-secondary btn-sm" title="Reimprimir Ticket">
+                🎟️ Ticket
+            </a>
+            <a href="{{ url_for('salida_form', placa=item.reg.placa) }}" class="btn btn-danger btn-sm">Salida</a>
+        </div>
       </td>
     </tr>
     {% else %}
