@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Usuarios - El Puente{% endblock %}
+{% block content %}
+<div class="page-title">Gestión de <span>Usuarios</span></div>
+
+<div class="card" style="max-width: 600px; margin: auto;">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Usuario</th>
+                <th>Rol</th>
+                <th>Acción</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for u in usuarios %}
+            <tr>
+                <td style="font-weight: bold;">{{ u.username }}</td>
+                <td><span class="badge {{ 'btn-danger' if u.rol == 'admin' else 'btn-secondary' }}" style="padding: 2px 8px; font-size: 0.7rem;">{{ u.rol|upper }}</span></td>
+                <td>
+                    <a href="{{ url_for('reset_password', id=u.id) }}" 
+                       class="btn btn-warn" style="font-size: 0.8rem; padding: 5px 10px;"
+                       onclick="return confirm('¿Resetear clave a: cambiar123?')">
+                        🔄 Reset Clave
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <p style="font-size: 0.8rem; color: var(--text2); margin-top: 1rem;">
+        * El botón reset pone la clave: <b>cambiar123</b>
+    </p>
+</div>
+{% endblock %}
