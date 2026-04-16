@@ -145,6 +145,14 @@ def calcular_valor(tipo, minutos_totales, tarifas):
         # También eliminamos el tope para las motos
         return total
 
+def get_consecutivo(conn):
+    # Esta función maneja el número de ticket (1, 2, 3...)
+    c = conn.cursor()
+    c.execute("UPDATE consecutivo SET numero = numero + 1 WHERE id = 1")
+    conn.commit()
+    res = conn.execute("SELECT numero FROM consecutivo WHERE id = 1").fetchone()
+    return res["numero"]
+
 # ─── Rutas ───────────────────────────────────────────────────────
 @app.route("/login", methods=["GET","POST"])
 def login():
