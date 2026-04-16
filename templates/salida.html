@@ -64,8 +64,8 @@
               onclick="document.getElementById('valorInput').value={{ valor_sugerido }}">
         ⏱ Tiempo (${{ "{:,}".format(valor_sugerido) }})
       </button>
-      <button type="button" class="btn btn-warn"
-              onclick="document.getElementById('valorInput').value={{ tarifa_dia if tarifa_dia is defined else valor_sugerido }}">
+      
+      <button type="button" class="btn btn-warn" onclick="fijarTarifaDia()">
         📅 Día
       </button>
     </div>
@@ -83,7 +83,19 @@ function selectMetodo(m) {
   document.getElementById('lbl_' + m).classList.add('selected');
 }
 
-// Actualizar valor en tiempo real
+// FUNCIÓN PARA CAMBIAR A TARIFA DE DÍA SEGÚN TIPO DE VEHÍCULO
+function fijarTarifaDia() {
+    const tipo = "{{ reg.tipo }}".toLowerCase();
+    const input = document.getElementById('valorInput');
+    
+    if (tipo === 'carro') {
+        input.value = 13000;
+    } else {
+        input.value = 7000;
+    }
+}
+
+// Actualizar valor en tiempo real cada 30 segundos
 setInterval(() => {
   fetch(`/api/valor_estimado?placa={{ reg.placa }}`)
     .then(r => r.json())
