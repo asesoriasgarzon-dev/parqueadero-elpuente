@@ -11,7 +11,7 @@
     {% if session.usuario %}
     <nav class="navbar">
         <a class="navbar-brand" href="{{ url_for('inicio') }}">
-            <i class="fas fa-bridge"></i> <span>El Puente</span>
+            辦 <span>El Puente</span>
         </a>
         
         <div class="nav-links">
@@ -22,31 +22,23 @@
             <a href="{{ url_for('mensualidades') }}" {% if request.endpoint == 'mensualidades' %}class="active"{% endif %}>Mensualidades</a>
             
             {% if session.rol == 'admin' %}
-                <div class="admin-separator"></div>
-                <a href="{{ url_for('gestion_usuarios') }}" {% if request.endpoint == 'gestion_usuarios' %}class="active"{% endif %}>👥 Usuarios</a>
-                <a href="{{ url_for('estadisticas') }}" {% if request.endpoint == 'estadisticas' %}class="active"{% endif %}>📊 Estadísticas</a>
-                <a href="{{ url_for('tarifas') }}" {% if request.endpoint == 'tarifas' %}class="active"{% endif %}>⚙️ Tarifas</a>
-                <a href="{{ url_for('backup') }}" title="Copia de seguridad">💾 Backup</a>
+                <a href="{{ url_for('gestion_usuarios') }}" {% if request.endpoint == 'gestion_usuarios' %}class="active"{% endif %}>Usuarios</a>
+                <a href="{{ url_for('estadisticas') }}" {% if request.endpoint == 'estadisticas' %}class="active"{% endif %}>Estadísticas</a>
+                <a href="{{ url_for('tarifas') }}" {% if request.endpoint == 'tarifas' %}class="active"{% endif %}>Tarifas</a>
+                <a href="{{ url_for('backup') }}" title="Copia de Seguridad">💾</a>
             {% endif %}
         </div>
 
         <div class="nav-user">
-            <div class="user-info">
-                <span class="user-name">👤 <b>{{ session.usuario }}</b></span>
-                <span class="user-role">{{ session.rol }}</span>
-            </div>
+            <span>👤 <b>{{ session.usuario }}</b> <small style="color:var(--accent); text-transform:uppercase; font-size:0.6rem;">{{ session.rol }}</small></span>
             
-            <div class="user-actions">
-                <a href="{{ url_for('perfil') }}" 
-                   {% if request.endpoint == 'perfil' %}class="active"{% endif %} 
-                   title="Mi Perfil">
-                   ⚙️
-                </a>
+            <a href="{{ url_for('perfil') }}" 
+               {% if request.endpoint == 'perfil' %}style="color:var(--accent);"{% endif %} 
+               title="Configurar Perfil">
+               ⚙️
+            </a>
 
-                <a href="{{ url_for('logout') }}" class="btn-exit" title="Cerrar Sesión">
-                    <i class="fas fa-sign-out-alt"></i> Salir
-                </a>
-            </div>
+            <a href="{{ url_for('logout') }}">Salir</a>
         </div>
     </nav>
     {% endif %}
@@ -55,7 +47,7 @@
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
             {% for category, message in messages %}
-              <div class="alert alert-{{ category }}" style="margin-bottom: 20px; padding: 10px; border-radius: 5px; text-align: center;">
+              <div class="alert alert-{{ 'success' if category == 'success' else 'error' }}">
                 {{ message }}
               </div>
             {% endfor %}
