@@ -6,12 +6,73 @@
     <title>{% block title %}Parqueadero El Puente{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        /* 🎯 CENTRADO DINÁMICO DEL SISTEMA */
+        .container {
+            max-width: 900px; /* Tamaño ideal para reportes y tablas en PC */
+            margin: 0 auto;   /* Centra el bloque horizontalmente */
+            padding: 20px;
+            width: 100%;
+            box-sizing: border-box;
+            transition: all 0.3s ease;
+        }
+
+        /* 🔒 AJUSTE ESPECIAL PARA EL LOGIN */
+        /* Si estamos en el login, lo hacemos más estrecho para que no se estire */
+        {% if request.endpoint == 'login' %}
+        .container {
+            max-width: 420px;
+            margin-top: 8vh; /* Lo baja un poco para que respire */
+        }
+        {% endif %}
+
+        /* 📱 RESPONSIVIDAD (CELULARES) */
+        @media (max-width: 600px) {
+            .container {
+                padding: 10px;
+                max-width: 100%;
+            }
+            
+            .navbar {
+                flex-direction: column;
+                padding: 1rem;
+                height: auto;
+            }
+
+            .nav-links {
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 10px;
+                margin: 10px 0;
+            }
+
+            .nav-user {
+                border-top: 1px solid var(--border);
+                padding-top: 10px;
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        /* Estilo para las alertas */
+        .alert {
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .alert-success { background: rgba(0, 210, 141, 0.2); color: #00d28d; border: 1px solid #00d28d; }
+        .alert-error { background: rgba(255, 68, 68, 0.2); color: #ff4444; border: 1px solid #ff4444; }
+    </style>
 </head>
 <body>
     {% if session.usuario %}
     <nav class="navbar">
         <a class="navbar-brand" href="{{ url_for('inicio') }}">
-            🅿️ <span>El Puente</span>
+            <span style="font-size: 1.5rem;">🅿️</span> <span>El Puente</span>
         </a>
         
         <div class="nav-links">
@@ -25,7 +86,7 @@
                 <a href="{{ url_for('gestion_usuarios') }}" {% if request.endpoint == 'gestion_usuarios' %}class="active"{% endif %}>Usuarios</a>
                 <a href="{{ url_for('estadisticas') }}" {% if request.endpoint == 'estadisticas' %}class="active"{% endif %}>Estadísticas</a>
                 <a href="{{ url_for('tarifas') }}" {% if request.endpoint == 'tarifas' %}class="active"{% endif %}>Tarifas</a>
-                <a href="{{ url_for('backup') }}" title="Copia de Seguridad">💾</a>
+                <a href="{{ url_for('backup') }}" title="Copia de Seguridad" style="font-size: 1.2rem;">💾</a>
             {% endif %}
         </div>
 
@@ -38,7 +99,7 @@
                ⚙️
             </a>
 
-            <a href="{{ url_for('logout') }}">Salir</a>
+            <a href="{{ url_for('logout') }}" style="color: #ff4444; margin-left: 10px;">Salir</a>
         </div>
     </nav>
     {% endif %}
@@ -58,7 +119,7 @@
     </div>
 
     <footer style="text-align: center; padding: 2rem 0; color: var(--text2); font-size: 0.85rem; border-top: 1px solid var(--border); margin-top: 3rem;">
-        <p>© 2026 Parqueadero <b>El Puente</b> | Versión 2.0</p>
+        <p>© 2026 Parqueadero <b>El Puente</b> | Versión 2.1</p>
         <p>Desarrollado por: <span style="color: var(--accent);">asesoriasgarzon@gmail.com</span></p>
     </footer>
 
