@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @page { size: 80mm auto; margin: 0; }
+        body { 
+            font-family: 'Courier New', Courier, monospace; 
+            width: 80mm; margin: 0; padding: 4mm; 
+            font-size: 13px; color: #000;
+        }
+        .center { text-align: center; }
+        .bold { font-weight: bold; }
+        .line { border-bottom: 1px dashed #000; margin: 8px 0; }
+        .flex { display: flex; justify-content: space-between; margin: 2px 0; }
+        .total-box { font-size: 18px; margin-top: 10px; border: 1px solid #000; padding: 5px; }
+    </style>
+</head>
+<body onload="window.print();">
+    <div class="center">
+        <span class="bold" style="font-size: 18px;">PARQUEADERO EL PUENTE</span><br>
+        <span class="bold">REPORTE DE CIERRE DIARIO</span><br>
+        <div class="line"></div>
+    </div>
+
+    <div class="flex"><span>FECHA:</span> <span class="bold">{{ fecha }}</span></div>
+    <div class="flex"><span>HORA CIERRE:</span> <span class="bold">{{ hora }}</span></div>
+    <div class="flex"><span>CAJERO:</span> <span class="bold">{{ session.usuario }}</span></div>
+    <div class="line"></div>
+
+    <div class="bold center">RESUMEN DE OPERACIÓN</div>
+    <div class="flex"><span>Vehículos Entrados:</span> <span>{{ total_entradas }}</span></div>
+    <div class="flex"><span>Vehículos Salidos:</span> <span>{{ total_salidas }}</span></div>
+    <div class="line"></div>
+
+    <div class="bold center">DETALLE DE RECAUDO</div>
+    {% for metodo, monto in desglose.items() %}
+    <div class="flex">
+        <span>{{ metodo }}:</span> 
+        <span class="bold">${{ "{:,.0f}".format(monto)|replace(',', '.') }}</span>
+    </div>
+    {% endfor %}
+    
+    <div class="center total-box">
+        <span class="bold">TOTAL EN CAJA</span><br>
+        <span class="bold">${{ "{:,.0f}".format(total_caja)|replace(',', '.') }}</span>
+    </div>
+
+    <div class="line" style="margin-top: 30px;"></div>
+    <div class="center">
+        <br><br>
+        __________________________<br>
+        FIRMA DEL RESPONSABLE
+    </div>
+    
+    <div class="center" style="margin-top: 20px; font-size: 10px;">
+        *** Reporte generado por Sistema El Puente ***
+    </div>
+</body>
+</html>
