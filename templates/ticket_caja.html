@@ -5,56 +5,85 @@
     <style>
         @page { size: 80mm auto; margin: 0; }
         body { 
-            font-family: 'Courier New', Courier, monospace; 
-            width: 80mm; margin: 0; padding: 4mm; 
-            font-size: 13px; color: #000;
+            font-family: 'Helvetica', 'Arial', sans-serif; 
+            width: 72mm; /* Ajuste para dejar margen físico en los 80mm */
+            margin: 0 auto; 
+            padding: 5mm 0; 
+            font-size: 12px; 
+            color: #000;
+            line-height: 1.4;
         }
-        .center { text-align: center; }
+        .header { text-align: center; margin-bottom: 10px; }
+        .title { font-size: 18px; font-weight: 900; letter-spacing: 1px; }
+        .subtitle { font-size: 13px; font-weight: bold; border: 1px solid #000; display: inline-block; padding: 2px 10px; margin-top: 5px; }
+        
+        .info-block { margin: 10px 0; font-size: 11px; }
+        .line { border-bottom: 2px solid #000; margin: 8px 0; }
+        .dotted-line { border-bottom: 1px dashed #666; margin: 8px 0; }
+        
+        .flex { display: flex; justify-content: space-between; align-items: center; }
         .bold { font-weight: bold; }
-        .line { border-bottom: 1px dashed #000; margin: 8px 0; }
-        .flex { display: flex; justify-content: space-between; margin: 2px 0; }
-        .total-box { font-size: 18px; margin-top: 10px; border: 1px solid #000; padding: 5px; }
+        
+        .section-title { 
+            background: #000; 
+            color: #fff; 
+            text-align: center; 
+            font-size: 11px; 
+            padding: 3px 0; 
+            margin: 10px 0;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+
+        .total-container { 
+            margin-top: 15px; 
+            padding: 8px; 
+            border: 2px solid #000; 
+            text-align: center; 
+        }
+        .total-label { font-size: 12px; font-weight: bold; text-transform: uppercase; }
+        .total-amount { font-size: 24px; font-weight: 900; display: block; }
+
+        .footer { text-align: center; margin-top: 25px; font-size: 10px; }
+        .signature { margin-top: 40px; border-top: 1px solid #000; width: 80%; margin-left: 10%; }
     </style>
 </head>
 <body onload="window.print();">
-    <div class="center">
-        <span class="bold" style="font-size: 18px;">PARQUEADERO EL PUENTE</span><br>
-        <span class="bold">REPORTE DE CIERRE DIARIO</span><br>
-        <div class="line"></div>
+    
+    <div class="header">
+        <div class="title">EL PUENTE</div>
+        <div class="subtitle">CIERRE DE CAJA</div>
     </div>
 
-    <div class="flex"><span>FECHA:</span> <span class="bold">{{ fecha }}</span></div>
-    <div class="flex"><span>HORA CIERRE:</span> <span class="bold">{{ hora }}</span></div>
-    <div class="flex"><span>CAJERO:</span> <span class="bold">{{ session.usuario }}</span></div>
-    <div class="line"></div>
+    <div class="info-block">
+        <div class="flex"><span>FECHA:</span> <span class="bold">{{ fecha }}</span></div>
+        <div class="flex"><span>HORA:</span> <span class="bold">{{ hora }}</span></div>
+        <div class="flex"><span>CAJERO:</span> <span class="bold">{{ session.usuario|upper }}</span></div>
+    </div>
 
-    <div class="bold center">RESUMEN DE OPERACIÓN</div>
-    <div class="flex"><span>Vehículos Entrados:</span> <span>{{ total_entradas }}</span></div>
-    <div class="flex"><span>Vehículos Salidos:</span> <span>{{ total_salidas }}</span></div>
-    <div class="line"></div>
+    <div class="section-title">Resumen de Tráfico</div>
+    <div class="flex"><span>Vehículos Entrados:</span> <span class="bold">{{ total_entradas }}</span></div>
+    <div class="flex"><span>Vehículos Salidos:</span> <span class="bold">{{ total_salidas }}</span></div>
 
-    <div class="bold center">DETALLE DE RECAUDO</div>
+    <div class="section-title">Desglose de Recaudo</div>
     {% for metodo, monto in desglose.items() %}
-    <div class="flex">
-        <span>{{ metodo }}:</span> 
+    <div class="flex" style="margin-bottom: 4px;">
+        <span>{{ metodo|upper }}:</span> 
         <span class="bold">${{ "{:,.0f}".format(monto)|replace(',', '.') }}</span>
     </div>
     {% endfor %}
     
-    <div class="center total-box">
-        <span class="bold">TOTAL EN CAJA</span><br>
-        <span class="bold">${{ "{:,.0f}".format(total_caja)|replace(',', '.') }}</span>
+    <div class="total-container">
+        <span class="total-label">Total Neto en Caja</span>
+        <span class="total-amount">${{ "{:,.0f}".format(total_caja)|replace(',', '.') }}</span>
     </div>
 
-    <div class="line" style="margin-top: 30px;"></div>
-    <div class="center">
-        <br><br>
-        __________________________<br>
-        FIRMA DEL RESPONSABLE
+    <div class="footer">
+        <div class="signature"></div>
+        <p class="bold">FIRMA RESPONSABLE</p>
+        <div class="dotted-line"></div>
+        <p>Software de Gestión de Parqueaderos<br>Versión 2.3 - 2026</p>
     </div>
-    
-    <div class="center" style="margin-top: 20px; font-size: 10px;">
-        *** Reporte generado por Sistema El Puente ***
-    </div>
+
 </body>
 </html>
