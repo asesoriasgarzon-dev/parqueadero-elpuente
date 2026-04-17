@@ -4,10 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Parqueadero El Puente{% endblock %}</title>
+    
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2898/2898588.png">
+    <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/2898/2898588.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="El Puente">
+    <meta name="mobile-web-app-capable" content="yes">
+
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
-<body style="margin: 0; padding: 0; background-color: #0d1117;"> {% if session.usuario %}
+<body style="margin: 0; padding: 0; background-color: #0d1117;"> 
+    {% if session.usuario %}
     <nav class="navbar">
         <a class="navbar-brand" href="{{ url_for('inicio') }}">
             <span style="font-size: 1.5rem;">🅿️</span> <span>El Puente</span>
@@ -60,7 +69,7 @@
     </div>
 
     <footer style="text-align: center; padding: 2rem 0; color: #8b949e; font-size: 0.85rem; border-top: 1px solid #30363d; margin-top: 3rem;">
-        <p>© 2026 Parqueadero <b>El Puente</b> | Versión 2.2</p>
+        <p>© 2026 Parqueadero <b>El Puente</b> | Versión 2.3</p>
         <p>Desarrollado por: <span style="color: #00d28d;">asesoriasgarzon@gmail.com</span></p>
     </footer>
 
