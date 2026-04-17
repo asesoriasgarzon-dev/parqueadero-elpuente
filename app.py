@@ -622,5 +622,42 @@ def limpiar_pruebas():
     conn.close()
     return redirect(url_for('inicio'))
 
+@app.route("/imprimir_caja")
+@login_required
+def imprimir_caja():
+    ahora_co = get_colombia_time()
+    fecha_hoy = ahora_co.strftime("%Y-%m-%d")
+    
+    conn = get_db()
+    # 1. Obtenemos todos los registros que salieron hoy
+    regs = conn.execute("""
+        SELECT metodo_pago, valor, tipo 
+        FROM parqueadero 
+        WHERE date(hora_salida) = ?
+    """, (fecha_hoy,)).fetchall()
+    
+    # 2. Calculamos totales y desglose
+    total_caja = 0
+    total_entradas_hoy = conn.execute("SELECT COUNT(*) FROM parqueadero WHERE date(hora_entrada) = ?", (fecha_hoy,)).fetchone()[0]
+    total_salidas_hoy = len(regs)
+    
+    desglose = {}
+    for r in regs:
+        valor = r["valor"] or 0
+        total_caja += valor
+        # Limpiamos el nombre del método (quitamos convenios si existen)
+        m = (r["metodo_pago"] or "Efectivo").split(" - ")[0]
+        desglose[m] = desglose.get(m, 0) + valor
+        
+    conn.close()
+    
+    return render_template("ticket_caja.html", 
+                           fecha=ahora_co.strftime("%d/%m/%Y"),
+                           hora=ahora_co.strftime("%I:%M %p"),
+                           desglose=desglose,
+                           total_caja=int(total_caja),
+                           total_entradas=total_entradas_hoy,
+                           total_salidas=total_salidas_hoy)
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)
