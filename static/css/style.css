@@ -64,14 +64,27 @@ body {
 .nav-user a { color: var(--danger); text-decoration: none; font-weight: 700; }
 
 /* ── Layout ── */
-.container { max-width: 1100px; margin: 0 auto; padding: 1.5rem 1rem; }
-.page-title {
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 2rem; font-weight: 900;
-  color: var(--text); margin-bottom: 1.5rem;
-  letter-spacing: .5px;
+.container { 
+    max-width: 900px; /* Bajamos de 1100 a 900 para que sea más centrado */
+    margin: 0 auto; 
+    padding: 1.5rem 1rem; 
+    width: 100%;
 }
-.page-title span { color: var(--accent); }
+
+/* 🔒 Ajuste para el Login (Centrado y angosto) */
+/* Agrega esto justo debajo de .container */
+.login-page-container {
+    max-width: 400px !important;
+    margin: 10vh auto !important;
+}
+
+.page-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 2rem; font-weight: 900;
+    color: var(--text); margin-bottom: 1.5rem;
+    letter-spacing: .5px;
+    text-align: center; /* Título centrado para mejor estética */
+}
 
 /* ── Cards ── */
 .card {
