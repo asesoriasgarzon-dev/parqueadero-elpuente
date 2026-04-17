@@ -63,29 +63,50 @@ body {
 .nav-user { font-size: .8rem; color: var(--text2); display: flex; align-items: center; gap: .8rem; }
 .nav-user a { color: var(--danger); text-decoration: none; font-weight: 700; }
 
-/* ── Layout ── */
+/* ── Layout (Centrado del Panel Principal) ── */
 .container { 
-    max-width: 900px; /* Bajamos de 1100 a 900 para que sea más centrado */
+    max-width: 900px; /* Reducido de 1100 a 900 para que se vea más centrado en PC */
     margin: 0 auto; 
     padding: 1.5rem 1rem; 
     width: 100%;
 }
 
-/* 🔒 Ajuste para el Login (Centrado y angosto) */
-/* Agrega esto justo debajo de .container */
-.login-page-container {
-    max-width: 400px !important;
-    margin: 10vh auto !important;
+/* ── Login (Centrado del Cuadro de Entrada) ── */
+.login-wrap {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg);
+    padding: 1rem;
 }
 
-.page-title {
+.login-box {
+    width: 100%;
+    max-width: 400px; /* Evita que el login se estire a lo ancho */
+    background: var(--surface);
+    padding: 2.5rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+
+.login-logo {
     font-family: 'Barlow Condensed', sans-serif;
-    font-size: 2rem; font-weight: 900;
-    color: var(--text); margin-bottom: 1.5rem;
-    letter-spacing: .5px;
-    text-align: center; /* Título centrado para mejor estética */
+    font-size: 2rem;
+    font-weight: 900;
+    text-align: center;
+    color: var(--accent);
+    margin-bottom: 2rem;
 }
+.login-logo span { color: var(--text); }
 
+/* ── Búsqueda Inteligente (Ajuste para que no sea tan larga) ── */
+.search-bar {
+    display: flex;
+    gap: 0.5rem;
+    max-width: 600px; /* Centra la barra de búsqueda y limita su ancho */
+}
 /* ── Cards ── */
 .card {
   background: var(--surface);
