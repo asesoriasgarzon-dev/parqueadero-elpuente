@@ -44,7 +44,7 @@
   </form>
 </div>
 
-<div class="form-group" style="margin-bottom: 1.5rem; max-width: 400px;">
+<div class="form-group" style="margin-bottom: 1.5rem; max-width: 400px; position: relative;">
     <input type="text" id="inputBusqueda" onkeyup="filtrarTabla()" 
            class="form-control" placeholder="🔍 Buscar por nombre, placa o marca..." 
            style="padding-left: 35px; background: var(--bg2); border: 1px solid #444;">
@@ -70,6 +70,7 @@
       <td>
         {% if item.alerta == 'Vencida' %}<span class="badge badge-red">Vencida</span>
         {% elif item.alerta == 'Por vencer' %}<span class="badge badge-warn">Por vencer</span>
+        {% elif item.alerta == 'Inactivo' %}<span class="badge" style="background:#555">Inactivo</span>
         {% else %}<span class="badge badge-green">Activo</span>{% endif %}
       </td>
       <td>
@@ -110,19 +111,23 @@ function toggleDetalles(id) {
 function filtrarTabla() {
   const filter = document.getElementById("inputBusqueda").value.toUpperCase();
   const rows = document.querySelectorAll("table tbody tr");
+  
   rows.forEach(row => {
+    // Solo filtramos las filas principales (las que tienen el onclick)
     if (row.hasAttribute('onclick')) {
       const text = row.innerText.toUpperCase();
       const detailRow = row.nextElementSibling;
+      
       if (text.includes(filter)) {
         row.style.display = "";
       } else {
         row.style.display = "none";
-        if (detailRow) detailRow.style.display = "none";
+        if (detailRow && detailRow.id.startsWith('row-')) {
+            detailRow.style.display = "none";
+        }
       }
     }
   });
 }
 </script>
 {% endblock %}
-
