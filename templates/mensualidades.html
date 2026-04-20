@@ -45,11 +45,9 @@
 </div>
 
 <div class="form-group" style="margin-bottom: 1.5rem; max-width: 400px;">
-  <div style="position: relative;">
     <input type="text" id="inputBusqueda" onkeyup="filtrarTabla()" 
            class="form-control" placeholder="🔍 Buscar por nombre, placa o marca..." 
            style="padding-left: 35px; background: var(--bg2); border: 1px solid #444;">
-  </div>
 </div>
 
 <div class="table-wrap">
@@ -65,7 +63,7 @@
     </thead>
     <tbody>
     {% for item in lista %}
-    <tr onclick="toggleDetalles('row-{{ item.reg.id }}')" style="cursor: pointer;" title="Haz clic para ver más detalles">
+    <tr onclick="toggleDetalles('row-{{ item.reg.id }}')" style="cursor: pointer;">
       <td><b>{{ item.reg.nombre }}</b></td>
       <td><span class="badge" style="background:var(--bg2); color:var(--accent)">{{ item.reg.placa }}</span></td>
       <td>{{ item.reg.fecha_fin }}</td>
@@ -83,23 +81,21 @@
 
     <tr id="row-{{ item.reg.id }}" style="display: none; background: rgba(255,255,255,0.03);">
       <td colspan="5">
-        <div style="padding: 1rem; border-left: 4px solid var(--accent); margin: 5px; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <div style="padding: 1rem; border-left: 4px solid var(--accent); display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
           <div>
-            <small style="color:var(--text2); display:block; margin-bottom:4px;">INFORMACIÓN DE CONTACTO</small>
-            <p style="margin:0"><strong>📞 Teléfono:</strong> {{ item.reg.telefono or 'No registrado' }}</p>
-            <p style="margin:0"><strong>📅 Fecha Inicio:</strong> {{ item.reg.fecha_inicio }}</p>
+            <p style="margin:0"><strong>📞 Teléfono:</strong> {{ item.reg.telefono or 'N/A' }}</p>
+            <p style="margin:0"><strong>📅 Inicio:</strong> {{ item.reg.fecha_inicio }}</p>
           </div>
           <div>
-            <small style="color:var(--text2); display:block; margin-bottom:4px;">DETALLES DEL VEHÍCULO</small>
-            <p style="margin:0"><strong>🚗 Marca:</strong> {{ item.reg.modelo or '' }}</p>
-            <p style="margin:0"><strong>🎨 Color:</strong> {{ item.reg.color or '' }}</p>
-            <p style="margin:0"><strong>📝 Notas:</strong> {{ item.reg.observaciones or 'Sin observaciones' }}</p>
+            <p style="margin:0"><strong>🚗 Marca:</strong> {{ item.reg.modelo or 'N/A' }}</p>
+            <p style="margin:0"><strong>🎨 Color:</strong> {{ item.reg.color or 'N/A' }}</p>
+            <p style="margin:0"><strong>📝 Notas:</strong> {{ item.reg.observaciones or 'Sin notas' }}</p>
           </div>
         </div>
       </td>
     </tr>
     {% else %}
-    <tr><td colspan="5" style="text-align:center;color:var(--text2);padding:2rem">Sin mensualidades registradas</td></tr>
+    <tr><td colspan="5" style="text-align:center;color:var(--text2);padding:2rem">Sin registros</td></tr>
     {% endfor %}
     </tbody>
   </table>
@@ -107,10 +103,8 @@
 
 <script>
 function toggleDetalles(id) {
-  const targetRow = document.getElementById(id);
-  if (targetRow) {
-    targetRow.style.display = (targetRow.style.display === 'none') ? 'table-row' : 'none';
-  }
+  const row = document.getElementById(id);
+  if (row) row.style.display = (row.style.display === 'none') ? 'table-row' : 'none';
 }
 
 function filtrarTabla() {
