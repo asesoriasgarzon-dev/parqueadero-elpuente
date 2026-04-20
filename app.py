@@ -483,17 +483,12 @@ def mensualidades():
                 if f_fin < hoy: alerta = "Vencida"
                 elif f_fin <= hoy + timedelta(days=5): alerta = "Por vencer"
             except: pass
-        lista.append({"reg": r, "alerta": alerta})
+        
+        # EL CAMBIO ESTÁ AQUÍ: dict(r) convierte el objeto de la BD en algo 
+        # que el HTML puede leer sin romperse (evita el error 500)
+        lista.append({"reg": dict(r), "alerta": alerta})
+        
     return render_template("mensualidades.html", lista=lista)
-
-@app.route("/mensualidades/eliminar/<int:id>")
-@login_required
-def eliminar_mensualidad(id):
-    conn = get_db()
-    conn.execute("DELETE FROM mensualidades WHERE id=?", (id,))
-    conn.commit()
-    conn.close()
-    return redirect(url_for("mensualidades"))
 
 # ─── Tarifas (solo admin) ─────────────────────────────────────────
 @app.route("/tarifas", methods=["GET","POST"])
