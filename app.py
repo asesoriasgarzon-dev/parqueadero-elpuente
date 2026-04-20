@@ -460,6 +460,15 @@ def caja():
 @login_required
 def mensualidades():
     conn = get_db()
+    
+    # --- BLOQUE DE SEGURIDAD: Crea las columnas si no existen (Evita Error 500) ---
+    for col in ["telefono", "modelo", "color", "observaciones"]:
+        try:
+            conn.execute(f"ALTER TABLE mensualidades ADD COLUMN {col} TEXT")
+            conn.commit()
+        except:
+            pass # Si ya existen, no hace nada
+
     if request.method == "POST":
         nombre = request.form.get("nombre","").strip()
         placa = request.form.get("placa","").strip().upper()
@@ -467,7 +476,6 @@ def mensualidades():
         estado = request.form.get("estado","")
         fi = request.form.get("fecha_inicio","")
         ff = request.form.get("fecha_fin","")
-        # NUEVOS CAMPOS
         tel = request.form.get("telefono","").strip()
         mod = request.form.get("modelo","").strip()
         col = request.form.get("color","").strip()
@@ -485,17 +493,24 @@ def mensualidades():
     hoy = get_colombia_time().date()
     lista = []
     for r in regs:
-        alerta = r["estado"]
-        if r["fecha_fin"]:
-            try:
-                f_fin = datetime.strptime(r["fecha_fin"], "%Y-%m-%d").date()
-                if f_fin < hoy: alerta = "Vencida"
-                elif f_fin <= hoy + timedelta(days=5): alerta = "Por vencer"
-            except: pass
+        # Usamos dict(r) y verificamos que el campo exista para evitar errores
+        datos_fila = dict(r)
+        alerta = datos_fila.get("estado", "Activo")
         
-        # EL CAMBIO ESTÁ AQUÍ: dict(r) convierte el objeto de la BD en algo 
-        # que el HTML puede leer sin romperse (evita el error 500)
-        lista.append({"reg": dict(r), "alerta": alerta})
+        # Validación de fecha segura
+        fecha_fin_str = datos_fila.get("fecha_fin")
+        if fecha_fin_str:
+            try:
+                # Solo intentamos convertir si tiene el formato correcto
+                f_fin = datetime.strptime(fecha_fin_str, "%Y-%m-%d").date()
+                if f_fin < hoy: 
+                    alerta = "Vencida"
+                elif f_fin <= hoy + timedelta(days=5): 
+                    alerta = "Por vencer"
+            except:
+                pass
+        
+        lista.append({"reg": datos_fila, "alerta": alerta})
         
     return render_template("mensualidades.html", lista=lista)
 
