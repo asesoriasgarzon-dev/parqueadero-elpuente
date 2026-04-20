@@ -456,12 +456,13 @@ def caja():
                            fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, 
                            por_metodo=por_metodo)
 # ─── Mensualidades ────────────────────────────────────────────────
-@app.route("/mensualidades", methods=["GET","POST"])
+@app.route("/mensualidades", methods=["GET", "POST"])
 @login_required
 def mensualidades():
     conn = get_db()
     
     if request.method == "POST":
+        # Solo tomamos los campos que la base de datos ya tiene
         nombre = request.form.get("nombre", "").strip()
         placa = request.form.get("placa", "").strip().upper()
         tipo = request.form.get("tipo", "")
@@ -469,42 +470,42 @@ def mensualidades():
         fi = request.form.get("fecha_inicio", "")
         ff = request.form.get("fecha_fin", "")
 
-        # Verificamos si la placa existe
+        # Verificamos si la placa existe para actualizar o insertar
         check = conn.execute("SELECT id FROM mensualidades WHERE placa = ?", (placa,)).fetchone()
         
         try:
             if check:
+                # Actualiza solo los campos básicos
                 conn.execute("""UPDATE mensualidades SET 
                     nombre=?, tipo=?, estado=?, fecha_inicio=?, fecha_fin=? 
                     WHERE placa=?""", (nombre, tipo, estado, fi, ff, placa))
             else:
+                # Inserta solo los campos básicos
                 conn.execute("""INSERT INTO mensualidades 
                     (nombre, placa, tipo, estado, fecha_inicio, fecha_fin) 
                     VALUES (?,?,?,?,?,?)""", (nombre, placa, tipo, estado, fi, ff))
             conn.commit()
         except Exception as e:
-            print(f"Error en DB: {e}")
             conn.rollback()
+            print(f"Error: {e}")
             
         return redirect(url_for('mensualidades'))
     
-    # Consultar datos existentes
-    regs = conn.execute("SELECT * FROM mensualidades ORDER BY nombre").fetchall()
+    # Consultar datos existentes para la tabla
+    regs = conn.execute("SELECT * FROM mensualidades ORDER BY nombre ASC").fetchall()
     hoy = get_colombia_time().date()
     lista = []
     
     for r in regs:
         fila = dict(r)
         alerta = "Activo"
-        f_fin_str = fila.get('fecha_fin')
-        
-        if f_fin_str:
+        if fila.get('fecha_fin'):
             try:
-                f_fin = datetime.strptime(f_fin_str, "%Y-%m-%d").date()
+                f_fin = datetime.strptime(fila['fecha_fin'], "%Y-%m-%d").date()
                 if f_fin < hoy: alerta = "Vencida"
                 elif f_fin <= hoy + timedelta(days=5): alerta = "Por vencer"
             except: pass
-            
+        if fila.get('estado') == 'Inactivo': alerta = 'Inactivo'
         lista.append({'reg': fila, 'alerta': alerta})
         
     conn.close()
