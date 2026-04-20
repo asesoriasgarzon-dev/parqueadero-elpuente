@@ -13,7 +13,7 @@
       
       <div class="form-group">
         <label>Marca</label>
-        <select name="modelo" id="marca" class="form-control">
+        <select name="modelo" class="form-control">
           <option value="">Seleccionar...</option>
           {% for m in ['Toyota','Mazda','Hyundai','Renault','Chevrolet','Kia','Ford','Nissan','Suzuki','BYD','Tesla','Bajaj','Yamaha','Honda','AKT','Otra'] %}
           <option value="{{ m }}">{{ m }}</option>
@@ -108,14 +108,15 @@
 <script>
 function toggleDetalles(id) {
   const targetRow = document.getElementById(id);
-  targetRow.style.display = (targetRow.style.display === 'none') ? 'table-row' : 'none';
+  if (targetRow) {
+    targetRow.style.display = (targetRow.style.display === 'none') ? 'table-row' : 'none';
+  }
 }
 
 function filtrarTabla() {
   const filter = document.getElementById("inputBusqueda").value.toUpperCase();
-  const tr = document.querySelectorAll("table tbody tr");
-
-  tr.forEach(row => {
+  const rows = document.querySelectorAll("table tbody tr");
+  rows.forEach(row => {
     if (row.hasAttribute('onclick')) {
       const text = row.innerText.toUpperCase();
       const detailRow = row.nextElementSibling;
