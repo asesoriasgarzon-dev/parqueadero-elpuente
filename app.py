@@ -510,6 +510,15 @@ def mensualidades():
         
     conn.close()
     return render_template("mensualidades.html", lista=lista)
+
+@app.route("/eliminar_mensualidad/<int:id>")
+@login_required
+def eliminar_mensualidad(id):
+    conn = get_db()
+    conn.execute("DELETE FROM mensualidades WHERE id = ?", (id,))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('mensualidades'))    
     
 # ─── Tarifas (solo admin) ─────────────────────────────────────────
 @app.route("/tarifas", methods=["GET","POST"])
