@@ -24,7 +24,7 @@
       <label>Marca</label>
       <select name="marca" id="marca" class="form-control">
         <option value="">Seleccionar...</option>
-        {% for m in ['Toyota','Mazda','Hyundai','Renault','Chevrolet','Kia','Ford','Nissan','Suzuki','Bajaj','Yamaha','Honda','AKT','Otra'] %}
+        {% for m in ['Toyota','Mazda','Hyundai','Renault','Chevrolet','Kia','Ford','Nissan','Suzuki','BYD','Tesla','Bajaj','Yamaha','Honda','AKT','Otra'] %}
         <option value="{{ m }}" {% if cliente and cliente.marca == m %}selected{% endif %}>{{ m }}</option>
         {% endfor %}
       </select>
