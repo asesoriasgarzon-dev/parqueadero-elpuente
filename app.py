@@ -461,51 +461,40 @@ def caja():
 def mensualidades():
     conn = get_db()
     
-    # 1. REPARACIÓN DE BASE DE DATOS (Crea las columnas si no existen)
-    columnas = ["telefono", "modelo", "color", "observaciones"]
-    for col in columnas:
-        try:
-            conn.execute(f"ALTER TABLE mensualidades ADD COLUMN {col} TEXT")
-            conn.commit()
-        except:
-            pass 
-
     if request.method == "POST":
-        # Extraemos los datos usando los nombres EXACTOS de tu HTML
         nombre = request.form.get("nombre", "").strip()
         placa = request.form.get("placa", "").strip().upper()
-        tel = request.form.get("telefono", "").strip()
-        mod = request.form.get("modelo", "").strip() # Cambiado de 'marca' a 'modelo'
-        col_v = request.form.get("color", "").strip()
         tipo = request.form.get("tipo", "")
+        estado = request.form.get("estado", "Activo")
         fi = request.form.get("fecha_inicio", "")
         ff = request.form.get("fecha_fin", "")
-        est = request.form.get("estado", "Activo")
-        obs = request.form.get("observaciones", "").strip()
 
-        # Lógica de guardado (Actualizar si existe placa, sino Insertar)
+        # Verificamos si la placa existe
         check = conn.execute("SELECT id FROM mensualidades WHERE placa = ?", (placa,)).fetchone()
         
-        if check:
-            conn.execute("""UPDATE mensualidades SET 
-                nombre=?, telefono=?, modelo=?, color=?, tipo=?, 
-                fecha_inicio=?, fecha_fin=?, estado=?, observaciones=? 
-                WHERE placa=?""", (nombre, tel, mod, col_v, tipo, fi, ff, est, obs, placa))
-        else:
-            conn.execute("""INSERT INTO mensualidades 
-                (nombre, placa, telefono, modelo, color, tipo, fecha_inicio, fecha_fin, estado, observaciones) 
-                VALUES (?,?,?,?,?,?,?,?,?,?)""", (nombre, placa, tel, mod, col_v, tipo, fi, ff, est, obs))
-        
-        conn.commit()
+        try:
+            if check:
+                conn.execute("""UPDATE mensualidades SET 
+                    nombre=?, tipo=?, estado=?, fecha_inicio=?, fecha_fin=? 
+                    WHERE placa=?""", (nombre, tipo, estado, fi, ff, placa))
+            else:
+                conn.execute("""INSERT INTO mensualidades 
+                    (nombre, placa, tipo, estado, fecha_inicio, fecha_fin) 
+                    VALUES (?,?,?,?,?,?)""", (nombre, placa, tipo, estado, fi, ff))
+            conn.commit()
+        except Exception as e:
+            print(f"Error en DB: {e}")
+            conn.rollback()
+            
         return redirect(url_for('mensualidades'))
     
-    # 2. PREPARACIÓN DE LA TABLA
+    # Consultar datos existentes
     regs = conn.execute("SELECT * FROM mensualidades ORDER BY nombre").fetchall()
     hoy = get_colombia_time().date()
     lista = []
     
     for r in regs:
-        fila = dict(r) # Convierte a diccionario para que el HTML funcione
+        fila = dict(r)
         alerta = "Activo"
         f_fin_str = fila.get('fecha_fin')
         
