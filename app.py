@@ -461,8 +461,8 @@ def caja():
 def mensualidades():
     conn = get_db()
     
-    # ─── Blindaje de Base de Datos ───
-    # Esto asegura que las columnas existan físicamente en el archivo .db
+    # ─── REPARACIÓN DE TABLA (Blindaje) ───
+    # Forzamos que existan las columnas para evitar Error 500 al consultar
     for col in ["telefono", "modelo", "color", "observaciones"]:
         try:
             conn.execute(f"ALTER TABLE mensualidades ADD COLUMN {col} TEXT")
@@ -482,28 +482,30 @@ def mensualidades():
         col = request.form.get("color","").strip()
         obs = request.form.get("observaciones","").strip()
 
+        # Guardar o actualizar
         conn.execute("""INSERT OR REPLACE INTO mensualidades 
             (nombre, placa, tipo, estado, fecha_inicio, fecha_fin, telefono, modelo, color, observaciones) 
             VALUES (?,?,?,?,?,?,?,?,?,?)""",
             (nombre, placa, tipo, estado, fi, ff, tel, mod, col, obs))
         conn.commit()
     
-    # Obtenemos los registros
+    # Consultar registros después de cualquier cambio
     regs = conn.execute("SELECT * FROM mensualidades ORDER BY nombre").fetchall()
-    conn.close()
     
     hoy = get_colombia_time().date()
     lista = []
     
     for r in regs:
-        # Convertimos a diccionario para que el HTML no falle al buscar llaves
+        # Importante: dict(r) nos asegura que el HTML no se rompa
         fila = dict(r)
+        
+        # Si el ID no existe en el diccionario por alguna razón, evitamos el error
         alerta = fila.get("estado", "Activo")
         
-        # Lógica de alertas de vencimiento
         f_fin_str = fila.get("fecha_fin")
         if f_fin_str:
             try:
+                # Validamos el formato YYYY-MM-DD
                 f_fin = datetime.strptime(f_fin_str, "%Y-%m-%d").date()
                 if f_fin < hoy: 
                     alerta = "Vencida"
@@ -513,7 +515,8 @@ def mensualidades():
                 pass
         
         lista.append({"reg": fila, "alerta": alerta})
-        
+    
+    conn.close() # Siempre cerramos al final
     return render_template("mensualidades.html", lista=lista)
 # ─── Tarifas (solo admin) ─────────────────────────────────────────
 @app.route("/tarifas", methods=["GET","POST"])
