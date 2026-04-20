@@ -61,19 +61,18 @@
         <th>Acción</th>
       </tr>
     </thead>
-    <tbody>
+   <tbody>
     {% for item in lista %}
-    <tr onclick="toggleDetalles('row-{{ item['reg']['id'] }}')" style="cursor: pointer;">
-      <<td><b>{{ item['reg']['nombre'] }}</b></td>
-      <td><span class="badge" style="background:var(--bg2); color:var(--accent)">{{ item['reg']['placa'] }}</span></td>
-      <td>{{ item['reg']['fecha_fin'] }}</td>
+    <tr onclick="toggleDetalles('row-{{ item.reg.id }}')" style="cursor: pointer;">
+      <td><b>{{ item.reg.nombre }}</b></td> <td><span class="badge" style="background:var(--bg2); color:var(--accent)">{{ item.reg.placa }}</span></td>
+      <td>{{ item.reg.fecha_fin }}</td>
       <td>
         {% if item.alerta == 'Vencida' %}<span class="badge badge-red">Vencida</span>
         {% elif item.alerta == 'Por vencer' %}<span class="badge badge-warn">Por vencer</span>
         {% else %}<span class="badge badge-green">Activo</span>{% endif %}
       </td>
       <td>
-        <a href="{{ url_for('eliminar_mensualidad', id=item['reg']['id']) }}"
+        <a href="{{ url_for('eliminar_mensualidad', id=item.reg.id) }}"
            onclick="event.stopPropagation(); return confirm('¿Eliminar esta mensualidad?')"
            class="btn btn-danger btn-sm">Eliminar</a>
       </td>
