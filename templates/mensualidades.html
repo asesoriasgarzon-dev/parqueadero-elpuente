@@ -61,10 +61,11 @@
         <th>Acción</th>
       </tr>
     </thead>
-   <tbody>
+    <tbody>
     {% for item in lista %}
     <tr onclick="toggleDetalles('row-{{ item.reg.id }}')" style="cursor: pointer;">
-      <td><b>{{ item.reg.nombre }}</b></td> <td><span class="badge" style="background:var(--bg2); color:var(--accent)">{{ item.reg.placa }}</span></td>
+      <td><b>{{ item.reg.nombre }}</b></td>
+      <td><span class="badge" style="background:var(--bg2); color:var(--accent)">{{ item.reg.placa }}</span></td>
       <td>{{ item.reg.fecha_fin }}</td>
       <td>
         {% if item.alerta == 'Vencida' %}<span class="badge badge-red">Vencida</span>
@@ -124,3 +125,4 @@ function filtrarTabla() {
 }
 </script>
 {% endblock %}
+
