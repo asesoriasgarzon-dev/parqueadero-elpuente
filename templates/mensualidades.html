@@ -4,7 +4,7 @@
 <div class="page-title">Gestión de <span>Mensualidades</span></div>
 
 <div class="card" style="max-width:700px;margin-bottom:2rem">
-  <div style="font-weight:700;margin-bottom:1rem;color:var(--text2)">Agregar / Actualizar mensualidad</div>
+  <div style="font-weight:700;margin-bottom:1rem;color:var(--text2)">Registrar Mensualidad</div>
   <form method="POST">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem">
       <div class="form-group">
@@ -15,20 +15,6 @@
         <label>Placa</label>
         <input name="placa" class="form-control" style="text-transform:uppercase" required>
       </div>
-
-      <div class="form-group">
-        <label>Teléfono / WhatsApp</label>
-        <input name="telefono" class="form-control" placeholder="300...">
-      </div>
-      <div class="form-group">
-        <label>Modelo del Vehículo</label>
-        <input name="modelo" class="form-control" placeholder="Ej: Renault Logan">
-      </div>
-
-      <div class="form-group">
-        <label>Color</label>
-        <input name="color" class="form-control" placeholder="Ej: Blanco">
-      </div>
       <div class="form-group">
         <label>Tipo</label>
         <select name="tipo" class="form-control">
@@ -36,16 +22,6 @@
           <option value="moto">Moto</option>
         </select>
       </div>
-
-      <div class="form-group">
-        <label>Fecha Inicio</label>
-        <input name="fecha_inicio" type="date" class="form-control" required>
-      </div>
-      <div class="form-group">
-        <label>Fecha Fin</label>
-        <input name="fecha_fin" type="date" class="form-control" required>
-      </div>
-
       <div class="form-group">
         <label>Estado</label>
         <select name="estado" class="form-control">
@@ -54,8 +30,12 @@
         </select>
       </div>
       <div class="form-group">
-        <label>Observaciones</label>
-        <input name="observaciones" class="form-control" placeholder="Detalles adicionales">
+        <label>Fecha Inicio</label>
+        <input name="fecha_inicio" type="date" class="form-control" required>
+      </div>
+      <div class="form-group">
+        <label>Fecha Fin</label>
+        <input name="fecha_fin" type="date" class="form-control" required>
       </div>
     </div>
     <button type="submit" class="btn btn-primary" style="margin-top: 1rem;">Guardar Mensualidad</button>
@@ -66,9 +46,9 @@
   <table>
     <thead>
       <tr>
-        <th>Nombre / Info</th>
+        <th>Nombre</th>
         <th>Placa</th>
-        <th>Vehículo</th>
+        <th>Tipo</th>
         <th>Estado</th>
         <th>Vencimiento</th>
         <th>Acción</th>
@@ -77,32 +57,22 @@
     <tbody>
     {% for item in lista %}
     <tr>
-      <td>
-        <b>{{ item.reg.nombre }}</b><br>
-        <small style="color:var(--text2)">{{ item.reg.telefono }}</small>
-      </td>
+      <td><b>{{ item.reg.nombre }}</b></td>
       <td><b>{{ item.reg.placa }}</b></td>
-      <td>
-        {{ item.reg.tipo|capitalize }}<br>
-        <small style="color:var(--text2)">{{ item.reg.modelo }} - {{ item.reg.color }}</small>
-      </td>
+      <td>{{ item.reg.tipo|capitalize }}</td>
       <td>
         {% if item.alerta == 'Vencida' %}<span class="badge badge-red">Vencida</span>
         {% elif item.alerta == 'Por vencer' %}<span class="badge badge-warn">Por vencer</span>
         {% else %}<span class="badge badge-green">Activo</span>{% endif %}
       </td>
-      <td>
-        <small>Desde: {{ item.reg.fecha_inicio }}</small><br>
-        <b>Hasta: {{ item.reg.fecha_fin }}</b>
-      </td>
+      <td><small>Hasta: {{ item.reg.fecha_fin }}</small></td>
       <td>
         <a href="{{ url_for('eliminar_mensualidad', id=item.reg.id) }}"
-           onclick="return confirm('¿Eliminar esta mensualidad?')"
-           class="btn btn-danger btn-sm">Eliminar</a>
+           onclick="return confirm('¿Eliminar?')" class="btn btn-danger btn-sm">Eliminar</a>
       </td>
     </tr>
     {% else %}
-    <tr><td colspan="6" style="text-align:center;color:var(--text2);padding:2rem">Sin mensualidades registradas</td></tr>
+    <tr><td colspan="6" style="text-align:center;padding:2rem">Sin registros</td></tr>
     {% endfor %}
     </tbody>
   </table>
