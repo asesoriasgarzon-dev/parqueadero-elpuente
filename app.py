@@ -40,6 +40,8 @@ def get_db():
 def init_db():
     conn = get_db()
     c = conn.cursor()
+    
+    # 1. Tabla Parqueadero (Añadida columna observaciones)
     c.execute("""CREATE TABLE IF NOT EXISTS parqueadero (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         placa TEXT, tipo TEXT,
@@ -47,27 +49,38 @@ def init_db():
         valor REAL, ticket_num INTEGER,
         marca TEXT, celular TEXT,
         metodo_pago TEXT DEFAULT 'Efectivo',
-        cajero TEXT DEFAULT 'Operador'
+        cajero TEXT DEFAULT 'Operador',
+        observaciones TEXT
     )""")
+    
     c.execute("""CREATE TABLE IF NOT EXISTS consecutivo (
         id INTEGER PRIMARY KEY, numero INTEGER
     )""")
     c.execute("INSERT OR IGNORE INTO consecutivo (id, numero) VALUES (1, 0)")
+    
+    # 2. Tabla Mensualidades (Añadidas 4 columnas nuevas)
     c.execute("""CREATE TABLE IF NOT EXISTS mensualidades (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nombre TEXT, placa TEXT UNIQUE,
         tipo TEXT, estado TEXT,
-        fecha_inicio TEXT, fecha_fin TEXT
+        fecha_inicio TEXT, fecha_fin TEXT,
+        telefono TEXT,
+        modelo TEXT,
+        color TEXT,
+        observaciones TEXT
     )""")
+    
     c.execute("""CREATE TABLE IF NOT EXISTS clientes_frecuentes (
         placa TEXT PRIMARY KEY, marca TEXT, celular TEXT
     )""")
+    
     c.execute("""CREATE TABLE IF NOT EXISTS usuarios (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE,
         password TEXT,
         rol TEXT DEFAULT 'operador'
     )""")
+    
     c.execute("""CREATE TABLE IF NOT EXISTS tarifas (
         id INTEGER PRIMARY KEY,
         tipo TEXT UNIQUE,
@@ -75,23 +88,32 @@ def init_db():
         valor_dia REAL,
         minutos_cortesia INTEGER DEFAULT 5
     )""")
+
     # Usuarios por defecto
     c.execute("INSERT OR IGNORE INTO usuarios (username, password, rol) VALUES ('admin', 'admin123', 'admin')")
     c.execute("INSERT OR IGNORE INTO usuarios (username, password, rol) VALUES ('operador', 'op123', 'operador')")
+    
     # Tarifas por defecto 2026
     c.execute("INSERT OR IGNORE INTO tarifas (id, tipo, valor_hora, valor_dia, minutos_cortesia) VALUES (1, 'carro', 4000, 13000, 5)")
     c.execute("INSERT OR IGNORE INTO tarifas (id, tipo, valor_hora, valor_dia, minutos_cortesia) VALUES (2, 'moto', 2500, 7000, 5)")
-    # Columnas opcionales para DBs antiguas
-    for col, tipo in [("metodo_pago", "TEXT"), ("cajero", "TEXT")]:
+
+    # --- BLOQUE DE ACTUALIZACIÓN SEGURO (ALTER TABLE) ---
+    # Esto evita errores si las columnas ya existen, pero las crea si no están.
+    
+    # Para Parqueadero
+    for col in [("metodo_pago", "TEXT"), ("cajero", "TEXT"), ("observaciones", "TEXT")]:
         try:
-            c.execute(f"ALTER TABLE parqueadero ADD COLUMN {col} {tipo}")
-        except Exception:
-            pass
+            c.execute(f"ALTER TABLE parqueadero ADD COLUMN {col[0]} {col[1]}")
+        except Exception: pass
+
+    # Para Mensualidades
+    for col in [("telefono", "TEXT"), ("modelo", "TEXT"), ("color", "TEXT"), ("observaciones", "TEXT")]:
+        try:
+            c.execute(f"ALTER TABLE mensualidades ADD COLUMN {col[0]} {col[1]}")
+        except Exception: pass
+
     conn.commit()
     conn.close()
-
-init_db()
-
 # ─── Auth ────────────────────────────────────────────────────────
 def login_required(f):
     @wraps(f)
@@ -198,6 +220,8 @@ def entrada(tipo):
         placa = request.form.get("placa","").strip().upper()
         marca = request.form.get("marca","").strip()
         celular = request.form.get("celular","").strip()
+        obs = request.form.get("observaciones","").strip() # <--- NUEVO
+
         if not placa:
             mensaje = ("error", "La placa es obligatoria.")
         else:
@@ -206,10 +230,16 @@ def entrada(tipo):
             if existe:
                 conn.close()
                 return redirect(url_for("salida_form", placa=placa))
+            
             ticket_num = get_consecutivo(conn)
             ahora = get_colombia_time().strftime("%Y-%m-%d %H:%M:%S")
-            conn.execute("INSERT INTO parqueadero (placa, tipo, hora_entrada, ticket_num, marca, celular, cajero) VALUES (?,?,?,?,?,?,?)",
-                         (placa, tipo, ahora, ticket_num, marca, celular, session.get("usuario")))
+            
+            # INSERT ACTUALIZADO CON 'observaciones'
+            conn.execute("""INSERT INTO parqueadero 
+                (placa, tipo, hora_entrada, ticket_num, marca, celular, cajero, observaciones) 
+                VALUES (?,?,?,?,?,?,?,?)""",
+                (placa, tipo, ahora, ticket_num, marca, celular, session.get("usuario"), obs))
+            
             conn.execute("INSERT OR REPLACE INTO clientes_frecuentes (placa, marca, celular) VALUES (?,?,?)",
                          (placa, marca, celular))
             conn.commit()
@@ -428,24 +458,30 @@ def mensualidades():
         estado = request.form.get("estado","")
         fi = request.form.get("fecha_inicio","")
         ff = request.form.get("fecha_fin","")
-        conn.execute("INSERT OR REPLACE INTO mensualidades (nombre,placa,tipo,estado,fecha_inicio,fecha_fin) VALUES (?,?,?,?,?,?)",
-                     (nombre, placa, tipo, estado, fi, ff))
+        # NUEVOS CAMPOS
+        tel = request.form.get("telefono","").strip()
+        mod = request.form.get("modelo","").strip()
+        col = request.form.get("color","").strip()
+        obs = request.form.get("observaciones","").strip()
+
+        conn.execute("""INSERT OR REPLACE INTO mensualidades 
+            (nombre, placa, tipo, estado, fecha_inicio, fecha_fin, telefono, modelo, color, observaciones) 
+            VALUES (?,?,?,?,?,?,?,?,?,?)""",
+            (nombre, placa, tipo, estado, fi, ff, tel, mod, col, obs))
         conn.commit()
     
     regs = conn.execute("SELECT * FROM mensualidades ORDER BY nombre").fetchall()
     conn.close()
     
-    # CAMBIO: 'hoy' ahora es la fecha real de Colombia
     hoy = get_colombia_time().date()
-    
     lista = []
     for r in regs:
         alerta = r["estado"]
         if r["fecha_fin"]:
             try:
-                ff = datetime.strptime(r["fecha_fin"], "%Y-%m-%d").date()
-                if ff < hoy: alerta = "Vencida"
-                elif ff <= hoy + timedelta(days=5): alerta = "Por vencer"
+                f_fin = datetime.strptime(r["fecha_fin"], "%Y-%m-%d").date()
+                if f_fin < hoy: alerta = "Vencida"
+                elif f_fin <= hoy + timedelta(days=5): alerta = "Por vencer"
             except: pass
         lista.append({"reg": r, "alerta": alerta})
     return render_template("mensualidades.html", lista=lista)
