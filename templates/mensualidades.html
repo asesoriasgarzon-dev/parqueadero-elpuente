@@ -63,10 +63,10 @@
     </thead>
     <tbody>
     {% for item in lista %}
-    <tr onclick="toggleDetalles('row-{{ item.reg.id }}')" style="cursor: pointer;">
-      <td><b>{{ item.reg.nombre }}</b></td>
-      <td><span class="badge" style="background:var(--bg2); color:var(--accent)">{{ item.reg.placa }}</span></td>
-      <td>{{ item.reg.fecha_fin }}</td>
+    <tr onclick="toggleDetalles('row-{{ item['reg']['id'] }}')" style="cursor: pointer;">
+      <<td><b>{{ item['reg']['nombre'] }}</b></td>
+      <td><span class="badge" style="background:var(--bg2); color:var(--accent)">{{ item['reg']['placa'] }}</span></td>
+      <td>{{ item['reg']['fecha_fin'] }}</td>
       <td>
         {% if item.alerta == 'Vencida' %}<span class="badge badge-red">Vencida</span>
         {% elif item.alerta == 'Por vencer' %}<span class="badge badge-warn">Por vencer</span>
