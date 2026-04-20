@@ -220,12 +220,20 @@ def entrada(tipo):
         placa = request.form.get("placa","").strip().upper()
         marca = request.form.get("marca","").strip()
         celular = request.form.get("celular","").strip()
-        obs = request.form.get("observaciones","").strip() # <--- NUEVO
+        obs = request.form.get("observaciones","").strip()
 
         if not placa:
             mensaje = ("error", "La placa es obligatoria.")
         else:
             conn = get_db()
+            
+            # --- LÍNEA SALVAVIDAS PARA EVITAR ERROR 500 ---
+            try:
+                conn.execute("ALTER TABLE parqueadero ADD COLUMN observaciones TEXT")
+            except:
+                pass # Si la columna ya existe, no hace nada
+            # ----------------------------------------------
+
             existe = conn.execute("SELECT id FROM parqueadero WHERE placa=? AND hora_salida IS NULL", (placa,)).fetchone()
             if existe:
                 conn.close()
@@ -234,7 +242,7 @@ def entrada(tipo):
             ticket_num = get_consecutivo(conn)
             ahora = get_colombia_time().strftime("%Y-%m-%d %H:%M:%S")
             
-            # INSERT ACTUALIZADO CON 'observaciones'
+            # INSERT con los 8 campos
             conn.execute("""INSERT INTO parqueadero 
                 (placa, tipo, hora_entrada, ticket_num, marca, celular, cajero, observaciones) 
                 VALUES (?,?,?,?,?,?,?,?)""",
@@ -245,6 +253,7 @@ def entrada(tipo):
             conn.commit()
             conn.close()
             return redirect(url_for("ticket_entrada", ticket=ticket_num))
+    
     else:
         placa_pre = request.args.get("placa","")
         if placa_pre:
