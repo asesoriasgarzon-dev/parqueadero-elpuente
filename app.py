@@ -461,15 +461,14 @@ def caja():
 def mensualidades():
     conn = get_db()
     
-    # ─── REPARACIÓN DE TABLA (Blindaje) ───
-    # Aseguramos que existan las nuevas columnas para evitar Error 500
-    columnas_extra = ["telefono", "modelo", "color", "observaciones"]
-    for col_name in columnas_extra:
+    # ─── REPARACIÓN DINÁMICA DE LA TABLA ───
+    columnas_necesarias = ["telefono", "modelo", "color", "observaciones"]
+    for col in columnas_necesarias:
         try:
-            conn.execute(f"ALTER TABLE mensualidades ADD COLUMN {col_name} TEXT")
+            conn.execute(f"ALTER TABLE mensualidades ADD COLUMN {col} TEXT")
             conn.commit()
         except:
-            pass 
+            pass # Si ya existe, no hace nada
 
     if request.method == "POST":
         nombre = request.form.get("nombre","").strip()
@@ -480,28 +479,29 @@ def mensualidades():
         ff = request.form.get("fecha_fin","")
         tel = request.form.get("telefono","").strip()
         mod = request.form.get("modelo","").strip()
-        col_vehiculo = request.form.get("color","").strip()
+        col_v = request.form.get("color","").strip()
         obs = request.form.get("observaciones","").strip()
 
-        # Lógica de Guardado Inteligente (Update si existe, Insert si no)
-        existe = conn.execute("SELECT id FROM mensualidades WHERE placa = ?", (placa,)).fetchone()
+        # Usamos una lógica de "Actualizar si existe la placa, si no Insertar"
+        # Esto es más seguro que INSERT OR REPLACE si no hay índices UNIQUE definidos
+        check = conn.execute("SELECT id FROM mensualidades WHERE placa = ?", (placa,)).fetchone()
         
-        if existe:
+        if check:
             conn.execute("""UPDATE mensualidades SET 
                 nombre=?, tipo=?, estado=?, fecha_inicio=?, fecha_fin=?, 
                 telefono=?, modelo=?, color=?, observaciones=? 
                 WHERE placa=?""",
-                (nombre, tipo, estado, fi, ff, tel, mod, col_vehiculo, obs, placa))
+                (nombre, tipo, estado, fi, ff, tel, mod, col_v, obs, placa))
         else:
             conn.execute("""INSERT INTO mensualidades 
                 (nombre, placa, tipo, estado, fecha_inicio, fecha_fin, telefono, modelo, color, observaciones) 
                 VALUES (?,?,?,?,?,?,?,?,?,?)""",
-                (nombre, placa, tipo, estado, fi, ff, tel, mod, col_vehiculo, obs))
+                (nombre, placa, tipo, estado, fi, ff, tel, mod, col_v, obs))
         
         conn.commit()
         return redirect(url_for('mensualidades'))
     
-    # Consulta de registros
+    # Consulta y preparación de lista
     regs = conn.execute("SELECT * FROM mensualidades ORDER BY nombre").fetchall()
     hoy = get_colombia_time().date()
     lista = []
@@ -509,22 +509,16 @@ def mensualidades():
     for r in regs:
         fila = dict(r)
         alerta = "Activo"
-        
         f_fin_str = fila.get("fecha_fin")
+        
         if f_fin_str:
             try:
                 f_fin = datetime.strptime(f_fin_str, "%Y-%m-%d").date()
-                if f_fin < hoy: 
-                    alerta = "Vencida"
-                elif f_fin <= hoy + timedelta(days=5): 
-                    alerta = "Por vencer"
-            except:
-                pass
-        
-        # Si el estado manual es Inactivo, forzamos esa alerta
-        if fila.get("estado") == "Inactivo":
-            alerta = "Inactivo"
+                if f_fin < hoy: alerta = "Vencida"
+                elif f_fin <= hoy + timedelta(days=5): alerta = "Por vencer"
+            except: pass
             
+        if fila.get("estado") == "Inactivo": alerta = "Inactivo"
         lista.append({"reg": fila, "alerta": alerta})
     
     conn.close()
