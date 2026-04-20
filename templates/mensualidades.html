@@ -10,7 +10,24 @@
       <div class="form-group"><label>Nombre</label><input name="nombre" class="form-control" required></div>
       <div class="form-group"><label>Placa</label><input name="placa" class="form-control" style="text-transform:uppercase" required></div>
       <div class="form-group"><label>Teléfono / WhatsApp</label><input name="telefono" class="form-control" placeholder="300..."></div>
-      <div class="form-group"><label>Modelo del Vehículo</label><input name="modelo" class="form-control" placeholder="Ej: Renault Logan"></div>
+      
+      <div class="form-group">
+        <label>Modelo del Vehículo</label>
+        <input name="modelo" class="form-control" placeholder="Ej: Logan, Spark, NMAX..." list="lista-modelos" autocomplete="off">
+        <datalist id="lista-modelos">
+          <option value="Spark">
+          <option value="Aveo">
+          <option value="Logan">
+          <option value="Sandero">
+          <option value="Picanto">
+          <option value="Mazda 3">
+          <option value="NMAX">
+          <option value="BWS">
+          <option value="NKD 125">
+          <option value="Pulsar">
+        </datalist>
+      </div>
+
       <div class="form-group"><label>Color</label><input name="color" class="form-control" placeholder="Ej: Blanco"></div>
       <div class="form-group">
         <label>Tipo</label>
@@ -32,6 +49,14 @@
     </div>
     <button type="submit" class="btn btn-primary" style="margin-top: 1rem;">Guardar Mensualidad</button>
   </form>
+</div>
+
+<div class="form-group" style="margin-bottom: 1.5rem; max-width: 400px;">
+  <div style="position: relative;">
+    <input type="text" id="inputBusqueda" onkeyup="filtrarTabla()" 
+           class="form-control" placeholder="🔍 Buscar por nombre, placa o modelo..." 
+           style="padding-left: 35px; background: var(--bg2); border: 1px solid #444;">
+  </div>
 </div>
 
 <div class="table-wrap">
@@ -87,6 +112,7 @@
 </div>
 
 <script>
+// Función para Expandir Detalles
 function toggleDetalles(id) {
   const targetRow = document.getElementById(id);
   if (targetRow.style.display === 'none') {
@@ -94,6 +120,29 @@ function toggleDetalles(id) {
   } else {
     targetRow.style.display = 'none';
   }
+}
+
+// Función para Filtrar la Tabla
+function filtrarTabla() {
+  const input = document.getElementById("inputBusqueda");
+  const filter = input.value.toUpperCase();
+  const tr = document.querySelectorAll("table tbody tr");
+
+  tr.forEach(row => {
+    // Solo filtramos las filas principales (las que tienen el onclick)
+    if (row.hasAttribute('onclick')) {
+      const text = row.innerText.toUpperCase();
+      const detailRow = row.nextElementSibling;
+      
+      if (text.includes(filter)) {
+        row.style.display = "";
+      } else {
+        row.style.display = "none";
+        // Si ocultamos la fila principal, ocultamos sus detalles también
+        if (detailRow) detailRow.style.display = "none";
+      }
+    }
+  });
 }
 </script>
 {% endblock %}
