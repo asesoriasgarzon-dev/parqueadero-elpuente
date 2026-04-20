@@ -461,8 +461,9 @@ def caja():
 def mensualidades():
     conn = get_db()
     
-    # REPARACIÓN AUTOMÁTICA: Crea las columnas si no existen (Blindaje)
-    for col in ["telefono", "modelo", "color", "observaciones"]:
+    # 1. REPARACIÓN DE BASE DE DATOS (Crea las columnas si no existen)
+    columnas = ["telefono", "modelo", "color", "observaciones"]
+    for col in columnas:
         try:
             conn.execute(f"ALTER TABLE mensualidades ADD COLUMN {col} TEXT")
             conn.commit()
@@ -470,22 +471,22 @@ def mensualidades():
             pass 
 
     if request.method == "POST":
-        # Recogemos los datos usando los nombres exactos de tu mensualidades.html
+        # Extraemos los datos usando los nombres EXACTOS de tu HTML
         nombre = request.form.get("nombre", "").strip()
-        placa  = request.form.get("placa", "").strip().upper()
-        tel    = request.form.get("telefono", "").strip()
-        mod    = request.form.get("modelo", "").strip() # Antes decía 'marca', por eso fallaba
-        col_v  = request.form.get("color", "").strip()
-        tipo   = request.form.get("tipo", "")
-        fi     = request.form.get("fecha_inicio", "")
-        ff     = request.form.get("fecha_fin", "")
-        est    = request.form.get("estado", "Activo")
-        obs    = request.form.get("observaciones", "").strip()
+        placa = request.form.get("placa", "").strip().upper()
+        tel = request.form.get("telefono", "").strip()
+        mod = request.form.get("modelo", "").strip() # Cambiado de 'marca' a 'modelo'
+        col_v = request.form.get("color", "").strip()
+        tipo = request.form.get("tipo", "")
+        fi = request.form.get("fecha_inicio", "")
+        ff = request.form.get("fecha_fin", "")
+        est = request.form.get("estado", "Activo")
+        obs = request.form.get("observaciones", "").strip()
 
-        # Lógica para no duplicar placas (Actualizar si ya existe)
-        existe = conn.execute("SELECT id FROM mensualidades WHERE placa = ?", (placa,)).fetchone()
+        # Lógica de guardado (Actualizar si existe placa, sino Insertar)
+        check = conn.execute("SELECT id FROM mensualidades WHERE placa = ?", (placa,)).fetchone()
         
-        if existe:
+        if check:
             conn.execute("""UPDATE mensualidades SET 
                 nombre=?, telefono=?, modelo=?, color=?, tipo=?, 
                 fecha_inicio=?, fecha_fin=?, estado=?, observaciones=? 
@@ -498,34 +499,15 @@ def mensualidades():
         conn.commit()
         return redirect(url_for('mensualidades'))
     
-    # IMPORTANTE: Convertir a diccionario para que el HTML lo lea bien
+    # 2. PREPARACIÓN DE LA TABLA
     regs = conn.execute("SELECT * FROM mensualidades ORDER BY nombre").fetchall()
     hoy = get_colombia_time().date()
     lista = []
     
     for r in regs:
-        fila = dict(r) # <-- Esta línea es vital
+        fila = dict(r) # Convierte a diccionario para que el HTML funcione
         alerta = "Activo"
-        if fila.get('fecha_fin'):
-            try:
-                f_fin = datetime.strptime(fila['fecha_fin'], "%Y-%m-%d").date()
-                if f_fin < hoy: alerta = "Vencida"
-                elif f_fin <= hoy + timedelta(days=5): alerta = "Por vencer"
-            except: pass
-        lista.append({'reg': fila, 'alerta': alerta})
-        
-    conn.close()
-    return render_template("mensualidades.html", lista=lista)
-    
-    # Consulta y preparación de lista
-    regs = conn.execute("SELECT * FROM mensualidades ORDER BY nombre").fetchall()
-    hoy = get_colombia_time().date()
-    lista = []
-    
-    for r in regs:
-        fila = dict(r)
-        alerta = "Activo"
-        f_fin_str = fila.get("fecha_fin")
+        f_fin_str = fila.get('fecha_fin')
         
         if f_fin_str:
             try:
@@ -534,9 +516,8 @@ def mensualidades():
                 elif f_fin <= hoy + timedelta(days=5): alerta = "Por vencer"
             except: pass
             
-        if fila.get("estado") == "Inactivo": alerta = "Inactivo"
-        lista.append({"reg": fila, "alerta": alerta})
-    
+        lista.append({'reg': fila, 'alerta': alerta})
+        
     conn.close()
     return render_template("mensualidades.html", lista=lista)
     
