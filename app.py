@@ -461,13 +461,14 @@ def caja():
 def mensualidades():
     conn = get_db()
     
-    # --- BLOQUE DE SEGURIDAD: Crea las columnas si no existen (Evita Error 500) ---
+    # ─── Blindaje de Base de Datos ───
+    # Esto asegura que las columnas existan físicamente en el archivo .db
     for col in ["telefono", "modelo", "color", "observaciones"]:
         try:
             conn.execute(f"ALTER TABLE mensualidades ADD COLUMN {col} TEXT")
             conn.commit()
         except:
-            pass # Si ya existen, no hace nada
+            pass 
 
     if request.method == "POST":
         nombre = request.form.get("nombre","").strip()
@@ -487,22 +488,23 @@ def mensualidades():
             (nombre, placa, tipo, estado, fi, ff, tel, mod, col, obs))
         conn.commit()
     
+    # Obtenemos los registros
     regs = conn.execute("SELECT * FROM mensualidades ORDER BY nombre").fetchall()
     conn.close()
     
     hoy = get_colombia_time().date()
     lista = []
+    
     for r in regs:
-        # Usamos dict(r) y verificamos que el campo exista para evitar errores
-        datos_fila = dict(r)
-        alerta = datos_fila.get("estado", "Activo")
+        # Convertimos a diccionario para que el HTML no falle al buscar llaves
+        fila = dict(r)
+        alerta = fila.get("estado", "Activo")
         
-        # Validación de fecha segura
-        fecha_fin_str = datos_fila.get("fecha_fin")
-        if fecha_fin_str:
+        # Lógica de alertas de vencimiento
+        f_fin_str = fila.get("fecha_fin")
+        if f_fin_str:
             try:
-                # Solo intentamos convertir si tiene el formato correcto
-                f_fin = datetime.strptime(fecha_fin_str, "%Y-%m-%d").date()
+                f_fin = datetime.strptime(f_fin_str, "%Y-%m-%d").date()
                 if f_fin < hoy: 
                     alerta = "Vencida"
                 elif f_fin <= hoy + timedelta(days=5): 
@@ -510,10 +512,9 @@ def mensualidades():
             except:
                 pass
         
-        lista.append({"reg": datos_fila, "alerta": alerta})
+        lista.append({"reg": fila, "alerta": alerta})
         
     return render_template("mensualidades.html", lista=lista)
-
 # ─── Tarifas (solo admin) ─────────────────────────────────────────
 @app.route("/tarifas", methods=["GET","POST"])
 @login_required
