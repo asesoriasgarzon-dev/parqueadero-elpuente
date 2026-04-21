@@ -730,24 +730,25 @@ def imprimir_caja():
                            total_entradas=total_entradas_hoy,
                            total_salidas=total_salidas_hoy)
 
-# ─── Ruta para Anular Ticket ──────────────────────────────────────
-@app.route("/anular_ticket", methods=["POST"])
+# ─── Ruta para Anular Pago (Paso Final) ──────────────────────────
+@app.route("/anular_pago/<int:id>")
 @login_required
-@admin_required  # Solo el admin puede anular para evitar fraudes
-def anular_ticket():
-    id_registro = request.form.get("id")
-    motivo = request.form.get("motivo")
+@admin_required
+def anular_pago(id):
+    # Obtenemos los datos que vienen en la URL
+    motivo = request.args.get("motivo", "No especificado")
+    valor_real = request.args.get("real", 0)
     
-    if not id_registro or not motivo:
-        return redirect(url_for('historico'))
-
     conn = get_db()
-    # Traemos el valor que tenía el ticket antes de anularlo para guardarlo como respaldo
-    reg = conn.execute("SELECT valor FROM parqueadero WHERE id = ?", (id_registro,)).fetchone()
+    # Verificamos que el registro exista
+    reg = conn.execute("SELECT id FROM parqueadero WHERE id = ?", (id,)).fetchone()
     
     if reg:
-        valor_original = reg["valor"]
-        # Marcamos como anulado, guardamos el motivo y ponemos el valor actual en 0
+        # Actualizamos el registro:
+        # 1. Marcamos como anulado (1)
+        # 2. Guardamos el motivo
+        # 3. Guardamos lo que realmente se cobró (valor_real)
+        # 4. Ponemos el 'valor' oficial en 0 para que no sume en la caja
         conn.execute("""
             UPDATE parqueadero 
             SET anulado = 1, 
@@ -755,10 +756,11 @@ def anular_ticket():
                 valor_real = ?, 
                 valor = 0 
             WHERE id = ?
-        """, (motivo, valor_original, id_registro))
+        """, (motivo, valor_real, id))
         conn.commit()
     
     conn.close()
+    # Al terminar, regresamos al histórico
     return redirect(url_for('historico'))
     
 if __name__ == "__main__":
