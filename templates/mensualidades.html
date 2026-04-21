@@ -1,37 +1,38 @@
 {% extends "base.html" %}
 {% block title %}Mensualidades – El Puente{% endblock %}
+
 {% block content %}
 <style>
-  /* 1. Fila Principal: Mantiene el color oscuro de la App */
+  /* 1. Fila Principal: Color oscuro de la App */
   .table-wrap table tbody tr {
     background-color: var(--surface) !important;
     color: var(--text) !important;
     border-bottom: 1px solid var(--border) !important;
   }
 
-  /* 2. Bloquea el hover para que NO cambie de color al pasar el mouse */
+  /* 2. Bloquea el hover del CSS general */
   .table-wrap table tbody tr:hover td {
     background: transparent !important;
   }
 
-  /* 3. Fila de Detalles: Fondo claro para contrastar la información extra */
+  /* 3. Fila de Detalles: Fondo claro para resaltar la info técnica */
   .table-wrap table tbody tr[id^="det-"] {
     background-color: #f4f6f7 !important;
   }
 
-  /* 4. Texto de Detalles: Color oscuro para que sea legible sobre el gris claro */
+  /* 4. Texto de Detalles: Color oscuro para legibilidad */
   .table-wrap table tbody tr[id^="det-"] td {
     color: #333 !important;
-    padding: 1.2rem;
   }
 
-  /* Asegura que el cursor sea una mano en toda la fila */
   .table-wrap tbody tr {
     cursor: pointer !important;
   }
 </style>
+
 <div class="page-title">Gestión de <span>Mensualidades</span></div>
-<div class="card" style="max-width:850px;margin-bottom:2rem">
+
+<div class="card" style="max-width:850px;margin-bottom:1.5rem">
   <div style="font-weight:700;margin-bottom:1rem;color:var(--text2)">Registrar / Actualizar Mensualidad</div>
   <form method="POST">
     <div style="display:grid;grid-template-columns: 1fr 1fr 1fr; gap:.8rem">
@@ -61,16 +62,24 @@
     </div>
     <div class="form-group" style="margin-top:.8rem">
       <label>Observaciones (Rayones, detalles)</label>
-      <textarea name="observaciones" class="form-control" rows="2" placeholder="Escriba aquí cualquier detalle o estado del vehículo..."></textarea>
+      <textarea name="observaciones" class="form-control" rows="2" placeholder="Escriba aquí cualquier detalle..."></textarea>
     </div>
-    <button type="submit" class="btn btn-primary" style="margin-top: 1rem;">Guardar Mensualidad</button>
+    <button type="submit" class="btn btn-primary">Guardar Mensualidad</button>
   </form>
+</div>
+
+<div class="card" style="margin-bottom: 1.5rem; border-left: 4px solid var(--accent);">
+  <div class="form-group" style="margin-bottom: 0;">
+    <label style="color: var(--accent); font-weight: bold;">🔍 BUSCAR CLIENTE O PLACA</label>
+    <input type="text" id="buscadorPlaca" class="form-control" placeholder="Escriba aquí para filtrar..." onkeyup="filtrarTabla()">
+  </div>
 </div>
 
 <div class="table-wrap">
   <table style="width:100%">
     <thead>
       <tr>
+        <th style="width: 40px;">#</th>
         <th>Cliente / Placa</th>
         <th>Vehículo</th>
         <th>Estado</th>
@@ -80,10 +89,12 @@
     </thead>
     <tbody>
     {% for item in lista %}
-    <tr onclick="toggleDetalles('det-{{ item.reg.id }}')" style="border-bottom: 1px solid #eee;">
+    <tr onclick="toggleDetalles('det-{{ item.reg.id }}')">
+      <td style="color: var(--text2); font-size: 0.85rem;">{{ loop.index }}</td>
+      
       <td>
         <b>{{ item.reg.nombre }}</b><br>
-        <span style="color:var(--primary); font-size:0.9rem; font-weight:bold">{{ item.reg.placa }}</span>
+        <span style="color:var(--accent); font-size:0.9rem; font-weight:bold">{{ item.reg.placa }}</span>
       </td>
       <td>{{ item.reg.tipo|capitalize }}</td>
       <td>
@@ -99,9 +110,10 @@
            onclick="event.stopPropagation(); return confirm('¿Eliminar?')">Borrar</a>
       </td>
     </tr>
-    <tr id="det-{{ item.reg.id }}" style="display:none; border-left: 6px solid var(--primary); box-shadow: inset 0 0 5px rgba(0,0,0,0.05);">
-      <td colspan="5" style="padding: 1.2rem;">
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; font-size: 0.95rem; color: #333;">
+    
+    <tr id="det-{{ item.reg.id }}" style="display:none; border-left: 6px solid var(--accent);">
+      <td colspan="6">
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; font-size: 0.95rem; padding: 1.2rem;">
           <div>
             <p style="margin:4px 0"><strong>📞 Teléfono:</strong> {{ item.reg.telefono or 'No registrado' }}</p>
             <p style="margin:4px 0"><strong>🚗 Modelo:</strong> {{ item.reg.modelo or 'N/A' }}</p>
@@ -119,12 +131,35 @@
 </div>
 
 <script>
+// Función para expandir/contraer detalles
 function toggleDetalles(id) {
   const el = document.getElementById(id);
-  if (el.style.display === 'none') {
-    el.style.display = 'table-row';
-  } else {
-    el.style.display = 'none';
+  el.style.display = (el.style.display === 'none') ? 'table-row' : 'none';
+}
+
+// Función para el buscador en vivo
+function filtrarTabla() {
+  const input = document.getElementById("buscadorPlaca");
+  const filter = input.value.toUpperCase();
+  const table = document.querySelector(".table-wrap table");
+  const tr = table.getElementsByTagName("tr");
+
+  for (let i = 1; i < tr.length; i++) {
+    // Ignoramos las filas de detalles en el filtrado inicial
+    if (!tr[i].id.includes('det-')) {
+      const tdContent = tr[i].getElementsByTagName("td")[1];
+      if (tdContent) {
+        const textValue = tdContent.textContent || tdContent.innerText;
+        if (textValue.toUpperCase().indexOf(filter) > -1) {
+          tr[i].style.display = "";
+        } else {
+          tr[i].style.display = "none";
+          // Si ocultamos la principal, ocultamos su detalle también
+          const match = tr[i].getAttribute("onclick").match(/'([^']+)'/);
+          if(match) document.getElementById(match[1]).style.display = "none";
+        }
+      }
+    }
   }
 }
 </script>
