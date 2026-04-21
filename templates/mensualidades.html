@@ -52,7 +52,7 @@
     </thead>
     <tbody>
     {% for item in lista %}
-    <tr onclick="toggleDetalles('det-{{ item.reg.id }}')" style="cursor:pointer">
+    <tr onclick="toggleDetalles('det-{{ item.reg.id }}')" style="cursor:pointer; border-bottom: 1px solid #eee;">
       <td>
         <b>{{ item.reg.nombre }}</b><br>
         <span style="color:var(--primary); font-size:0.9rem; font-weight:bold">{{ item.reg.placa }}</span>
@@ -71,16 +71,16 @@
            onclick="event.stopPropagation(); return confirm('¿Eliminar?')">Borrar</a>
       </td>
     </tr>
-    <tr id="det-{{ item.reg.id }}" style="display:none; background: #fdfdfd; border-left: 4px solid var(--primary);">
-      <td colspan="5" style="padding: 1rem;">
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1rem; font-size: 0.9rem;">
+    <tr id="det-{{ item.reg.id }}" style="display:none; background-color: #f4f6f7;">
+      <td colspan="5" style="padding: 1.2rem; border-left: 6px solid var(--primary); box-shadow: inset 0 0 5px rgba(0,0,0,0.05);">
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; font-size: 0.95rem; color: #333;">
           <div>
-            <p style="margin:2px"><strong>📞 Teléfono:</strong> {{ item.reg.telefono or 'No registrado' }}</p>
-            <p style="margin:2px"><strong>🚗 Modelo:</strong> {{ item.reg.modelo or 'N/A' }}</p>
+            <p style="margin:4px 0"><strong>📞 Teléfono:</strong> {{ item.reg.telefono or 'No registrado' }}</p>
+            <p style="margin:4px 0"><strong>🚗 Modelo:</strong> {{ item.reg.modelo or 'N/A' }}</p>
           </div>
           <div>
-            <p style="margin:2px"><strong>🎨 Color:</strong> {{ item.reg.color or 'N/A' }}</p>
-            <p style="margin:2px"><strong>📝 Observaciones:</strong> {{ item.reg.observaciones or 'Sin detalles' }}</p>
+            <p style="margin:4px 0"><strong>🎨 Color:</strong> {{ item.reg.color or 'N/A' }}</p>
+            <p style="margin:4px 0"><strong>📝 Observaciones:</strong> <span style="color:#555; font-style:italic">{{ item.reg.observaciones or 'Sin detalles' }}</span></p>
           </div>
         </div>
       </td>
@@ -93,7 +93,12 @@
 <script>
 function toggleDetalles(id) {
   const el = document.getElementById(id);
-  el.style.display = (el.style.display === 'none') ? 'table-row' : 'none';
+  // Cerramos otros detalles abiertos si quieres que solo se vea uno a la vez (opcional)
+  if (el.style.display === 'none') {
+    el.style.display = 'table-row';
+  } else {
+    el.style.display = 'none';
+  }
 }
 </script>
 {% endblock %}
