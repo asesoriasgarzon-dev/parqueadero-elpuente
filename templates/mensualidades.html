@@ -1,6 +1,23 @@
 {% extends "base.html" %}
 {% block title %}Mensualidades – El Puente{% endblock %}
+
 {% block content %}
+<style>
+  /* 1. Evita que las filas cambien de color al pasar el mouse */
+  .table-wrap tbody tr:hover {
+    background-color: transparent !important;
+  }
+
+  /* 2. Mantiene el color gris de la fila de detalles aunque se pase el mouse */
+  tr[id^="det-"], tr[id^="det-"]:hover {
+    background-color: #f4f6f7 !important;
+  }
+
+  /* 3. Asegura que el cursor siempre sea una mano para indicar que es clickeable */
+  .table-wrap tbody tr {
+    cursor: pointer;
+  }
+</style>
 <div class="page-title">Gestión de <span>Mensualidades</span></div>
 
 <div class="card" style="max-width:850px;margin-bottom:2rem">
@@ -52,7 +69,7 @@
     </thead>
     <tbody>
     {% for item in lista %}
-    <tr onclick="toggleDetalles('det-{{ item.reg.id }}')" style="cursor:pointer; border-bottom: 1px solid #eee;">
+    <tr onclick="toggleDetalles('det-{{ item.reg.id }}')" style="border-bottom: 1px solid #eee;">
       <td>
         <b>{{ item.reg.nombre }}</b><br>
         <span style="color:var(--primary); font-size:0.9rem; font-weight:bold">{{ item.reg.placa }}</span>
@@ -71,8 +88,8 @@
            onclick="event.stopPropagation(); return confirm('¿Eliminar?')">Borrar</a>
       </td>
     </tr>
-    <tr id="det-{{ item.reg.id }}" style="display:none; background-color: #f4f6f7;">
-      <td colspan="5" style="padding: 1.2rem; border-left: 6px solid var(--primary); box-shadow: inset 0 0 5px rgba(0,0,0,0.05);">
+    <tr id="det-{{ item.reg.id }}" style="display:none; border-left: 6px solid var(--primary); box-shadow: inset 0 0 5px rgba(0,0,0,0.05);">
+      <td colspan="5" style="padding: 1.2rem;">
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; font-size: 0.95rem; color: #333;">
           <div>
             <p style="margin:4px 0"><strong>📞 Teléfono:</strong> {{ item.reg.telefono or 'No registrado' }}</p>
@@ -93,7 +110,6 @@
 <script>
 function toggleDetalles(id) {
   const el = document.getElementById(id);
-  // Cerramos otros detalles abiertos si quieres que solo se vea uno a la vez (opcional)
   if (el.style.display === 'none') {
     el.style.display = 'table-row';
   } else {
