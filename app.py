@@ -41,42 +41,40 @@ def init_db():
     conn = get_db()
     c = conn.cursor()
     
-    # 1. Tabla Parqueadero (Añadida columna observaciones)
+    # 1. Tabla Parqueadero
     c.execute("""CREATE TABLE IF NOT EXISTS parqueadero (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        placa TEXT, tipo TEXT,
-        hora_entrada TEXT, hora_salida TEXT,
-        valor REAL, ticket_num INTEGER,
-        marca TEXT, celular TEXT,
-        metodo_pago TEXT DEFAULT 'Efectivo',
-        cajero TEXT DEFAULT 'Operador',
-        observaciones TEXT,
-        anulado INTEGER DEFAULT 0,
-        motivo_anulacion TEXT,
-        valor_real REAL DEFAULT 0
+        placa TEXT, 
+        tipo TEXT,
+        hora_entrada TEXT, 
+        hora_salida TEXT,
+        valor REAL, 
+        ticket_num INTEGER
     )""")
     
+    # 2. Tabla Consecutivo
     c.execute("""CREATE TABLE IF NOT EXISTS consecutivo (
         id INTEGER PRIMARY KEY, numero INTEGER
     )""")
     c.execute("INSERT OR IGNORE INTO consecutivo (id, numero) VALUES (1, 0)")
     
-    # 2. Tabla Mensualidades (Añadidas 4 columnas nuevas)
+    # 3. Tabla Mensualidades
     c.execute("""CREATE TABLE IF NOT EXISTS mensualidades (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nombre TEXT, placa TEXT UNIQUE,
-        tipo TEXT, estado TEXT,
-        fecha_inicio TEXT, fecha_fin TEXT,
-        telefono TEXT,
-        modelo TEXT,
-        color TEXT,
-        observaciones TEXT
+        nombre TEXT, 
+        placa TEXT UNIQUE,
+        tipo TEXT, 
+        estado TEXT,
+        fecha_inicio TEXT, 
+        fecha_fin TEXT
     )""")
     
+    # 4. Tabla Clientes Frecuentes
     c.execute("""CREATE TABLE IF NOT EXISTS clientes_frecuentes (
         placa TEXT PRIMARY KEY, marca TEXT, celular TEXT
     )""")
     
+    # 5. Tabla Usuarios
     c.execute("""CREATE TABLE IF NOT EXISTS usuarios (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE,
@@ -84,6 +82,7 @@ def init_db():
         rol TEXT DEFAULT 'operador'
     )""")
     
+    # 6. Tabla Tarifas
     c.execute("""CREATE TABLE IF NOT EXISTS tarifas (
         id INTEGER PRIMARY KEY,
         tipo TEXT UNIQUE,
@@ -92,38 +91,49 @@ def init_db():
         minutos_cortesia INTEGER DEFAULT 5
     )""")
 
-    # Usuarios por defecto
+    # Datos iniciales (Usuarios y Tarifas 2026)
     c.execute("INSERT OR IGNORE INTO usuarios (username, password, rol) VALUES ('admin', 'admin123', 'admin')")
     c.execute("INSERT OR IGNORE INTO usuarios (username, password, rol) VALUES ('operador', 'op123', 'operador')")
-    
-    # Tarifas por defecto 2026
     c.execute("INSERT OR IGNORE INTO tarifas (id, tipo, valor_hora, valor_dia, minutos_cortesia) VALUES (1, 'carro', 4000, 13000, 5)")
     c.execute("INSERT OR IGNORE INTO tarifas (id, tipo, valor_hora, valor_dia, minutos_cortesia) VALUES (2, 'moto', 2500, 7000, 5)")
     
-    # --- BLOQUE DE ACTUALIZACIÓN SEGURO (ALTER TABLE) ---
-    # Esto evita errores si las columnas ya existen, pero las crea si no están.
+    # --- BLOQUE DE ACTUALIZACIÓN SEGURO (Evolución de la BD) ---
     
-    # Para Parqueadero (AQUÍ AGREGAS LAS 3 NUEVAS)
-    for col in [
-        ("metodo_pago", "TEXT"), 
-        ("cajero", "TEXT"), 
+    # Columnas adicionales para Parqueadero (Control de auditoría y anulaciones)
+    columnas_parqueadero = [
+        ("marca", "TEXT"),
+        ("celular", "TEXT"),
+        ("metodo_pago", "TEXT DEFAULT 'Efectivo'"),
+        ("cajero", "TEXT DEFAULT 'Operador'"),
         ("observaciones", "TEXT"),
-        ("anulado", "INTEGER DEFAULT 0"),        # <--- NUEVA
-        ("motivo_anulacion", "TEXT"),             # <--- NUEVA
-        ("valor_real", "REAL DEFAULT 0")          # <--- NUEVA
-    ]:
+        ("anulado", "INTEGER DEFAULT 0"),
+        ("motivo_anulacion", "TEXT"),
+        ("valor_real", "REAL DEFAULT 0")
+    ]
+    
+    for col in columnas_parqueadero:
         try:
             c.execute(f"ALTER TABLE parqueadero ADD COLUMN {col[0]} {col[1]}")
-        except Exception: pass
+        except Exception:
+            pass # La columna ya existe
 
-    # Para Mensualidades
-    for col in [("telefono", "TEXT"), ("modelo", "TEXT"), ("color", "TEXT"), ("observaciones", "TEXT")]:
+    # Columnas adicionales para Mensualidades (Datos del propietario)
+    columnas_mensualidades = [
+        ("telefono", "TEXT"), 
+        ("modelo", "TEXT"), 
+        ("color", "TEXT"), 
+        ("observaciones", "TEXT")
+    ]
+    
+    for col in columnas_mensualidades:
         try:
             c.execute(f"ALTER TABLE mensualidades ADD COLUMN {col[0]} {col[1]}")
-        except Exception: pass
+        except Exception:
+            pass # La columna ya existe
 
     conn.commit()
     conn.close()
+    print("Base de datos inicializada y actualizada correctamente.")
 # ─── Auth ────────────────────────────────────────────────────────
 def login_required(f):
     @wraps(f)
