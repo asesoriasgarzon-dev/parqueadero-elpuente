@@ -735,21 +735,24 @@ def imprimir_caja():
 @login_required
 @admin_required
 def anular_pago(id):
-    # Usamos request.args para capturar lo que viene después del '?' en la URL
+    # Capturamos los datos desde la URL (?motivo=...&real=...)
     motivo = request.args.get("motivo", "No especificado")
     valor_real_raw = request.args.get("real", "0")
     
-    # Limpiamos el valor por si llega con puntos o comas
+    # Limpiamos el valor numérico
     try:
+        # Quitamos cualquier punto o coma que el usuario haya puesto por error
         valor_real = float(str(valor_real_raw).replace(",", "").replace(".", ""))
     except:
         valor_real = 0
     
     conn = get_db()
-    reg = conn.execute("SELECT id FROM parqueadero WHERE id = ?", (id,)).fetchone()
+    # Verificamos si el registro existe
+    reg = conn.execute("SELECT id, valor FROM parqueadero WHERE id = ?", (id,)).fetchone()
     
     if reg:
-        # Importante: Ponemos 'valor = 0' para que no afecte el total de la caja
+        # Guardamos el valor que tenía originalmente en 'valor_real' para auditoría
+        # Y ponemos el campo 'valor' en 0 para que la caja cuadre restando ese dinero
         conn.execute("""
             UPDATE parqueadero 
             SET anulado = 1, 
