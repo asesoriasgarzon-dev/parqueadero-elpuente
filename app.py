@@ -767,6 +767,6 @@ def anular_pago(id):
     conn.close()
     return redirect(url_for('historico'))
     
-    if __name__ == "__main__":
-        init_db()  # <--- ESTA LÍNEA ES VITAL
-        app.run(host="0.0.0.0", port=5000, debug=False)
+if __name__ == "__main__":
+    init_db()  # <--- ESTA LÍNEA ES VITAL
+    app.run(host="0.0.0.0", port=5000, debug=False)
