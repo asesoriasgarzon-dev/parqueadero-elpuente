@@ -1,25 +1,30 @@
 {% extends "base.html" %}
 {% block title %}Mensualidades – El Puente{% endblock %}
-
 {% block content %}
 <style>
-  /* 1. Evita que las filas cambien de color al pasar el mouse */
-  .table-wrap tbody tr:hover {
-    background-color: transparent !important;
+  /* 1. Bloquea el efecto hover de las celdas para que no cambien de color */
+  .table-wrap table tbody tr:hover td {
+    background: transparent !important;
   }
 
-  /* 2. Mantiene el color gris de la fila de detalles aunque se pase el mouse */
-  tr[id^="det-"], tr[id^="det-"]:hover {
+  /* 2. Obliga a las filas normales a ser siempre blancas */
+  .table-wrap table tbody tr {
+    background-color: #ffffff !important;
+  }
+
+  /* 3. Obliga a las filas de detalles a mantener su gris suave */
+  .table-wrap table tbody tr[id^="det-"], 
+  .table-wrap table tbody tr[id^="det-"]:hover td {
     background-color: #f4f6f7 !important;
   }
 
-  /* 3. Asegura que el cursor siempre sea una mano para indicar que es clickeable */
-  .table-wrap tbody tr {
+  /* 4. Asegura que el texto sea oscuro para que se lea bien en el blanco */
+  .table-wrap table tbody td {
+    color: #333 !important;
     cursor: pointer;
   }
 </style>
 <div class="page-title">Gestión de <span>Mensualidades</span></div>
-
 <div class="card" style="max-width:850px;margin-bottom:2rem">
   <div style="font-weight:700;margin-bottom:1rem;color:var(--text2)">Registrar / Actualizar Mensualidad</div>
   <form method="POST">
