@@ -731,7 +731,6 @@ def imprimir_caja():
                            total_salidas=total_salidas_hoy)
 
 # ─── Ruta para Anular Pago (Versión Corregida) ──────────────────
-# ─── Ruta para Anular Pago (Versión Única y Corregida) ──────────
 @app.route("/anular_pago/<int:id>")
 @login_required
 @admin_required
