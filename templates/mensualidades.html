@@ -3,18 +3,16 @@
 {% block content %}
 <div class="page-title">Gestión de <span>Mensualidades</span></div>
 
-<div class="card" style="max-width:700px;margin-bottom:2rem">
-  <div style="font-weight:700;margin-bottom:1rem;color:var(--text2)">Registrar Mensualidad</div>
+<div class="card" style="max-width:850px;margin-bottom:2rem">
+  <div style="font-weight:700;margin-bottom:1rem;color:var(--text2)">Registrar / Actualizar Mensualidad</div>
   <form method="POST">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem">
-      <div class="form-group">
-        <label>Nombre del Cliente</label>
-        <input name="nombre" class="form-control" required>
-      </div>
-      <div class="form-group">
-        <label>Placa</label>
-        <input name="placa" class="form-control" style="text-transform:uppercase" required>
-      </div>
+    <div style="display:grid;grid-template-columns: 1fr 1fr 1fr; gap:.8rem">
+      <div class="form-group"><label>Nombre</label><input name="nombre" class="form-control" required></div>
+      <div class="form-group"><label>Placa</label><input name="placa" class="form-control" style="text-transform:uppercase" required></div>
+      <div class="form-group"><label>Teléfono</label><input name="telefono" class="form-control" placeholder="300..."></div>
+      
+      <div class="form-group"><label>Modelo / Marca</label><input name="modelo" class="form-control" placeholder="Ej: Renault Logan"></div>
+      <div class="form-group"><label>Color</label><input name="color" class="form-control" placeholder="Ej: Blanco"></div>
       <div class="form-group">
         <label>Tipo</label>
         <select name="tipo" class="form-control">
@@ -22,6 +20,9 @@
           <option value="moto">Moto</option>
         </select>
       </div>
+
+      <div class="form-group"><label>Fecha Inicio</label><input name="fecha_inicio" type="date" class="form-control" required></div>
+      <div class="form-group"><label>Fecha Fin</label><input name="fecha_fin" type="date" class="form-control" required></div>
       <div class="form-group">
         <label>Estado</label>
         <select name="estado" class="form-control">
@@ -29,26 +30,21 @@
           <option value="Inactivo">Inactivo</option>
         </select>
       </div>
-      <div class="form-group">
-        <label>Fecha Inicio</label>
-        <input name="fecha_inicio" type="date" class="form-control" required>
-      </div>
-      <div class="form-group">
-        <label>Fecha Fin</label>
-        <input name="fecha_fin" type="date" class="form-control" required>
-      </div>
+    </div>
+    <div class="form-group" style="margin-top:.8rem">
+      <label>Observaciones (Rayones, detalles)</label>
+      <textarea name="observaciones" class="form-control" rows="2" placeholder="Escriba aquí cualquier detalle o estado del vehículo..."></textarea>
     </div>
     <button type="submit" class="btn btn-primary" style="margin-top: 1rem;">Guardar Mensualidad</button>
   </form>
 </div>
 
 <div class="table-wrap">
-  <table>
+  <table style="width:100%">
     <thead>
       <tr>
-        <th>Nombre</th>
-        <th>Placa</th>
-        <th>Tipo</th>
+        <th>Cliente / Placa</th>
+        <th>Vehículo</th>
         <th>Estado</th>
         <th>Vencimiento</th>
         <th>Acción</th>
@@ -56,25 +52,48 @@
     </thead>
     <tbody>
     {% for item in lista %}
-    <tr>
-      <td><b>{{ item.reg.nombre }}</b></td>
-      <td><b>{{ item.reg.placa }}</b></td>
+    <tr onclick="toggleDetalles('det-{{ item.reg.id }}')" style="cursor:pointer">
+      <td>
+        <b>{{ item.reg.nombre }}</b><br>
+        <span style="color:var(--primary); font-size:0.9rem; font-weight:bold">{{ item.reg.placa }}</span>
+      </td>
       <td>{{ item.reg.tipo|capitalize }}</td>
       <td>
         {% if item.alerta == 'Vencida' %}<span class="badge badge-red">Vencida</span>
         {% elif item.alerta == 'Por vencer' %}<span class="badge badge-warn">Por vencer</span>
+        {% elif item.alerta == 'Inactivo' %}<span class="badge" style="background:#666">Inactivo</span>
         {% else %}<span class="badge badge-green">Activo</span>{% endif %}
       </td>
       <td><small>Hasta: {{ item.reg.fecha_fin }}</small></td>
       <td>
-        <a href="{{ url_for('eliminar_mensualidad', id=item.reg.id) }}"
-           onclick="return confirm('¿Eliminar?')" class="btn btn-danger btn-sm">Eliminar</a>
+        <a href="{{ url_for('eliminar_mensualidad', id=item.reg.id) }}" 
+           class="btn btn-danger btn-sm" 
+           onclick="event.stopPropagation(); return confirm('¿Eliminar?')">Borrar</a>
       </td>
     </tr>
-    {% else %}
-    <tr><td colspan="6" style="text-align:center;padding:2rem">Sin mensualidades registradas</td></tr>
+    <tr id="det-{{ item.reg.id }}" style="display:none; background: #fdfdfd; border-left: 4px solid var(--primary);">
+      <td colspan="5" style="padding: 1rem;">
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1rem; font-size: 0.9rem;">
+          <div>
+            <p style="margin:2px"><strong>📞 Teléfono:</strong> {{ item.reg.telefono or 'No registrado' }}</p>
+            <p style="margin:2px"><strong>🚗 Modelo:</strong> {{ item.reg.modelo or 'N/A' }}</p>
+          </div>
+          <div>
+            <p style="margin:2px"><strong>🎨 Color:</strong> {{ item.reg.color or 'N/A' }}</p>
+            <p style="margin:2px"><strong>📝 Observaciones:</strong> {{ item.reg.observaciones or 'Sin detalles' }}</p>
+          </div>
+        </div>
+      </td>
+    </tr>
     {% endfor %}
     </tbody>
   </table>
 </div>
+
+<script>
+function toggleDetalles(id) {
+  const el = document.getElementById(id);
+  el.style.display = (el.style.display === 'none') ? 'table-row' : 'none';
+}
+</script>
 {% endblock %}
