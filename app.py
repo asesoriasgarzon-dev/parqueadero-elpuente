@@ -776,6 +776,8 @@ def anular_pago(id):
     conn.close()
     return redirect(url_for('historico'))
     
+# Mueve la llamada afuera del if para que Railway la ejecute sí o sí
+init_db()
+
 if __name__ == "__main__":
-    init_db()  # <--- ESTA LÍNEA ES VITAL
     app.run(host="0.0.0.0", port=5000, debug=False)
