@@ -730,25 +730,26 @@ def imprimir_caja():
                            total_entradas=total_entradas_hoy,
                            total_salidas=total_salidas_hoy)
 
-# ─── Ruta para Anular Pago (Paso Final) ──────────────────────────
+# ─── Ruta para Anular Pago (Versión Corregida) ──────────────────
 @app.route("/anular_pago/<int:id>")
 @login_required
 @admin_required
 def anular_pago(id):
-    # Obtenemos los datos que vienen en la URL
+    # Usamos request.args para capturar lo que viene después del '?' en la URL
     motivo = request.args.get("motivo", "No especificado")
-    valor_real = request.args.get("real", 0)
+    valor_real_raw = request.args.get("real", "0")
+    
+    # Limpiamos el valor por si llega con puntos o comas
+    try:
+        valor_real = float(str(valor_real_raw).replace(",", "").replace(".", ""))
+    except:
+        valor_real = 0
     
     conn = get_db()
-    # Verificamos que el registro exista
     reg = conn.execute("SELECT id FROM parqueadero WHERE id = ?", (id,)).fetchone()
     
     if reg:
-        # Actualizamos el registro:
-        # 1. Marcamos como anulado (1)
-        # 2. Guardamos el motivo
-        # 3. Guardamos lo que realmente se cobró (valor_real)
-        # 4. Ponemos el 'valor' oficial en 0 para que no sume en la caja
+        # Importante: Ponemos 'valor = 0' para que no afecte el total de la caja
         conn.execute("""
             UPDATE parqueadero 
             SET anulado = 1, 
@@ -760,7 +761,6 @@ def anular_pago(id):
         conn.commit()
     
     conn.close()
-    # Al terminar, regresamos al histórico
     return redirect(url_for('historico'))
     
 if __name__ == "__main__":
