@@ -120,12 +120,13 @@ function toggleDetalles(id) {
 }
 
 function solicitarAnulacion(id, valorErroneo) {
-    const motivo = prompt("¿Motivo de la anulación del cobro de $" + valorErroneo + "?");
+    var motivo = prompt("¿Motivo de la anulación del cobro de $" + valorErroneo + "?");
     if (motivo) {
-        const valorReal = prompt("Ingrese el VALOR REAL que cobró (Solo números):");
+        var valorReal = prompt("Ingrese el VALOR REAL que cobró (Solo números):");
         if (valorReal !== null && !isNaN(valorReal) && valorReal !== "") {
-            // Esto redirige a la ruta de Python para procesar
-            window.location.href = `/anular_pago/${id}?motivo=${motivo}&real=${valorReal}`;
+            // USAMOS CONCATENACIÓN TRADICIONAL PARA EVITAR ERRORES DE RUTA
+            var url = "/anular_pago/" + id + "?motivo=" + encodeURIComponent(motivo) + "&real=" + valorReal;
+            window.location.href = url;
         } else {
             alert("Debe ingresar un valor numérico válido.");
         }
