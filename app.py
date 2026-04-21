@@ -50,7 +50,10 @@ def init_db():
         marca TEXT, celular TEXT,
         metodo_pago TEXT DEFAULT 'Efectivo',
         cajero TEXT DEFAULT 'Operador',
-        observaciones TEXT
+        observaciones TEXT,
+        anulado INTEGER DEFAULT 0,
+        motivo_anulacion TEXT,
+        valor_real REAL DEFAULT 0
     )""")
     
     c.execute("""CREATE TABLE IF NOT EXISTS consecutivo (
@@ -96,12 +99,19 @@ def init_db():
     # Tarifas por defecto 2026
     c.execute("INSERT OR IGNORE INTO tarifas (id, tipo, valor_hora, valor_dia, minutos_cortesia) VALUES (1, 'carro', 4000, 13000, 5)")
     c.execute("INSERT OR IGNORE INTO tarifas (id, tipo, valor_hora, valor_dia, minutos_cortesia) VALUES (2, 'moto', 2500, 7000, 5)")
-
+    
     # --- BLOQUE DE ACTUALIZACIÓN SEGURO (ALTER TABLE) ---
     # Esto evita errores si las columnas ya existen, pero las crea si no están.
     
-    # Para Parqueadero
-    for col in [("metodo_pago", "TEXT"), ("cajero", "TEXT"), ("observaciones", "TEXT")]:
+    # Para Parqueadero (AQUÍ AGREGAS LAS 3 NUEVAS)
+    for col in [
+        ("metodo_pago", "TEXT"), 
+        ("cajero", "TEXT"), 
+        ("observaciones", "TEXT"),
+        ("anulado", "INTEGER DEFAULT 0"),        # <--- NUEVA
+        ("motivo_anulacion", "TEXT"),             # <--- NUEVA
+        ("valor_real", "REAL DEFAULT 0")          # <--- NUEVA
+    ]:
         try:
             c.execute(f"ALTER TABLE parqueadero ADD COLUMN {col[0]} {col[1]}")
         except Exception: pass
