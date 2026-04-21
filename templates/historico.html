@@ -1,10 +1,39 @@
 {% extends "base.html" %}
 {% block title %}Histórico – El Puente{% endblock %}
+
 {% block content %}
+<style>
+  /* Estilos para el manejo de anulaciones */
+  .fila-anulada { opacity: 0.7; border-left: 4px solid var(--danger) !important; }
+  .texto-anulado { text-decoration: line-through; color: var(--text2); opacity: 0.6; }
+  
+  .table-wrap table tbody tr {
+    background-color: var(--surface) !important;
+    color: var(--text) !important;
+    border-bottom: 1px solid var(--border) !important;
+    cursor: pointer !important;
+  }
+
+  .table-wrap table tbody tr:hover td { background: transparent !important; }
+
+  /* Fila de detalles claros */
+  .table-wrap table tbody tr[id^="det-"] { background-color: #f4f6f7 !important; }
+  .table-wrap table tbody tr[id^="det-"] td { color: #333 !important; padding: 1.2rem; }
+
+  .badge-anulado {
+    background: var(--danger);
+    color: white;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: bold;
+  }
+</style>
+
 <div class="page-title">Histórico <span>de Movimientos</span></div>
 
-<form method="GET" class="search-bar">
-  <input name="placa" class="form-control" placeholder="Buscar por placa..." value="{{ placa }}" style="text-transform:uppercase">
+<form method="GET" class="search-bar" style="margin-bottom: 1.5rem;">
+  <input name="placa" class="form-control" placeholder="BUSCAR POR PLACA..." value="{{ placa }}" style="text-transform:uppercase">
   <button type="submit" class="btn btn-primary">Buscar</button>
   {% if placa %}<a href="{{ url_for('historico') }}" class="btn btn-secondary">Limpiar</a>{% endif %}
 </form>
@@ -13,33 +42,68 @@
   <table>
     <thead>
       <tr>
+        <th style="width: 40px;">#</th>
         <th>Ticket</th>
         <th>Placa</th>
         <th>Tipo</th>
-        <th>Marca</th>
-        <th>Entrada</th>
         <th>Salida</th>
         <th>Método</th>
         <th>Valor</th>
+        <th>Acción</th>
       </tr>
     </thead>
     <tbody>
     {% for r in regs %}
-    <tr>
+    <tr onclick="toggleDetalles('det-{{ r.id }}')" class="{% if r.anulado %}fila-anulada{% endif %}">
+      <td style="color: var(--text2); font-size: 0.8rem;">{{ loop.index }}</td>
       <td>{{ "%05d"|format(r.ticket_num) }}</td>
-      <td><b>{{ r.placa }}</b></td>
+      <td><b style="color:var(--accent)">{{ r.placa }}</b></td>
       <td>{{ r.tipo|capitalize }}</td>
-      <td>{{ r.marca or '---' }}</td>
-      <td style="font-size:.82rem">{{ r.hora_entrada }}</td>
-      <td style="font-size:.82rem">{{ r.hora_salida or '—' }}</td>
+      <td style="font-size:.82rem">{{ r.hora_salida.split(' ')[1] if r.hora_salida else '—' }}</td>
       <td>{{ r.metodo_pago or '---' }}</td>
       <td>
-        {# CAMBIO AQUÍ: Validamos por hora_salida, no por valor #}
         {% if r.hora_salida %}
-          <span style="color:var(--accent);font-weight:700">${{ "{:,}".format(r.valor|int) }}</span>
+          <div class="{% if r.anulado %}texto-anulado{% endif %}" style="font-weight:700">
+            ${{ "{:,}".format(r.valor|int) }}
+          </div>
+          {% if r.anulado %}
+            <b style="color:var(--accent)">Real: ${{ "{:,}".format(r.valor_real|int) }}</b>
+          {% endif %}
         {% else %}
-          <span class="badge badge-warn" style="background:#f39c12; color:white; padding:2px 6px; border-radius:4px; font-size:0.8rem;">En patio</span>
+          <span class="badge badge-warn">En patio</span>
         {% endif %}
+      </td>
+      <td>
+        {% if r.hora_salida and not r.anulado %}
+          <button onclick="event.stopPropagation(); solicitarAnulacion('{{ r.id }}', '{{ r.valor }}')" class="btn btn-danger btn-sm" style="padding: 2px 8px; font-size: 0.7rem;">
+            Anular
+          </button>
+        {% elif r.anulado %}
+          <span class="badge-anulado">ANULADO</span>
+        {% endif %}
+      </td>
+    </tr>
+
+    <tr id="det-{{ r.id }}" style="display:none;">
+      <td colspan="8">
+        <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; font-size: 0.9rem;">
+          <div>
+            <p><strong>📅 Entrada:</strong><br>{{ r.hora_entrada }}</p>
+            <p><strong>📅 Salida:</strong><br>{{ r.hora_salida or 'N/A' }}</p>
+          </div>
+          <div>
+            <p><strong>🚗 Marca:</strong> {{ r.marca or '---' }}</p>
+            <p><strong>🎫 Ticket:</strong> #{{ r.ticket_num }}</p>
+          </div>
+          <div>
+            {% if r.anulado %}
+              <p style="color:var(--danger)"><strong>🚫 Motivo Anulación:</strong><br>{{ r.motivo_anulacion }}</p>
+              <p><strong>💵 Valor Original:</strong> ${{ "{:,}".format(r.valor|int) }}</p>
+            {% else %}
+              <p style="color:#666; font-style:italic">Haga clic en 'Anular' si hubo un error en el cobro de este ticket.</p>
+            {% endif %}
+          </div>
+        </div>
       </td>
     </tr>
     {% else %}
@@ -48,4 +112,24 @@
     </tbody>
   </table>
 </div>
+
+<script>
+function toggleDetalles(id) {
+  const el = document.getElementById(id);
+  el.style.display = (el.style.display === 'none') ? 'table-row' : 'none';
+}
+
+function solicitarAnulacion(id, valorErroneo) {
+    const motivo = prompt("¿Motivo de la anulación del cobro de $" + valorErroneo + "?");
+    if (motivo) {
+        const valorReal = prompt("Ingrese el VALOR REAL que cobró (Solo números):");
+        if (valorReal !== null && !isNaN(valorReal) && valorReal !== "") {
+            // Esto redirige a la ruta de Python para procesar
+            window.location.href = `/anular_pago/${id}?motivo=${motivo}&real=${valorReal}`;
+        } else {
+            alert("Debe ingresar un valor numérico válido.");
+        }
+    }
+}
+</script>
 {% endblock %}
