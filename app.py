@@ -730,5 +730,36 @@ def imprimir_caja():
                            total_entradas=total_entradas_hoy,
                            total_salidas=total_salidas_hoy)
 
+# ─── Ruta para Anular Ticket ──────────────────────────────────────
+@app.route("/anular_ticket", methods=["POST"])
+@login_required
+@admin_required  # Solo el admin puede anular para evitar fraudes
+def anular_ticket():
+    id_registro = request.form.get("id")
+    motivo = request.form.get("motivo")
+    
+    if not id_registro or not motivo:
+        return redirect(url_for('historico'))
+
+    conn = get_db()
+    # Traemos el valor que tenía el ticket antes de anularlo para guardarlo como respaldo
+    reg = conn.execute("SELECT valor FROM parqueadero WHERE id = ?", (id_registro,)).fetchone()
+    
+    if reg:
+        valor_original = reg["valor"]
+        # Marcamos como anulado, guardamos el motivo y ponemos el valor actual en 0
+        conn.execute("""
+            UPDATE parqueadero 
+            SET anulado = 1, 
+                motivo_anulacion = ?, 
+                valor_real = ?, 
+                valor = 0 
+            WHERE id = ?
+        """, (motivo, valor_original, id_registro))
+        conn.commit()
+    
+    conn.close()
+    return redirect(url_for('historico'))
+    
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)
