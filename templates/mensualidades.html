@@ -2,26 +2,32 @@
 {% block title %}Mensualidades – El Puente{% endblock %}
 {% block content %}
 <style>
-  /* 1. Bloquea el efecto hover de las celdas para que no cambien de color */
+  /* 1. Fila Principal: Mantiene el color oscuro de la App */
+  .table-wrap table tbody tr {
+    background-color: var(--surface) !important;
+    color: var(--text) !important;
+    border-bottom: 1px solid var(--border) !important;
+  }
+
+  /* 2. Bloquea el hover para que NO cambie de color al pasar el mouse */
   .table-wrap table tbody tr:hover td {
     background: transparent !important;
   }
 
-  /* 2. Obliga a las filas normales a ser siempre blancas */
-  .table-wrap table tbody tr {
-    background-color: #ffffff !important;
-  }
-
-  /* 3. Obliga a las filas de detalles a mantener su gris suave */
-  .table-wrap table tbody tr[id^="det-"], 
-  .table-wrap table tbody tr[id^="det-"]:hover td {
+  /* 3. Fila de Detalles: Fondo claro para contrastar la información extra */
+  .table-wrap table tbody tr[id^="det-"] {
     background-color: #f4f6f7 !important;
   }
 
-  /* 4. Asegura que el texto sea oscuro para que se lea bien en el blanco */
-  .table-wrap table tbody td {
+  /* 4. Texto de Detalles: Color oscuro para que sea legible sobre el gris claro */
+  .table-wrap table tbody tr[id^="det-"] td {
     color: #333 !important;
-    cursor: pointer;
+    padding: 1.2rem;
+  }
+
+  /* Asegura que el cursor sea una mano en toda la fila */
+  .table-wrap tbody tr {
+    cursor: pointer !important;
   }
 </style>
 <div class="page-title">Gestión de <span>Mensualidades</span></div>
