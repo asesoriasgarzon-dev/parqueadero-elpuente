@@ -1,16 +1,58 @@
 {% extends "base.html" %}
 {% block title %}Activos – El Puente{% endblock %}
+
 {% block content %}
+<style>
+  /* 1. Fila Principal: Estilo oscuro de la App */
+  .table-wrap table tbody tr {
+    background-color: var(--surface) !important;
+    color: var(--text) !important;
+    border-bottom: 1px solid var(--border) !important;
+  }
+
+  /* 2. Bloquea el hover del style.css */
+  .table-wrap table tbody tr:hover td {
+    background: transparent !important;
+  }
+
+  /* 3. Fila de Detalles: Fondo claro para resaltar observaciones */
+  .table-wrap table tbody tr[id^="det-"] {
+    background-color: #f4f6f7 !important;
+  }
+
+  /* 4. Texto de Detalles: Color oscuro para legibilidad */
+  .table-wrap table tbody tr[id^="det-"] td {
+    color: #333 !important;
+  }
+
+  .table-wrap tbody tr {
+    cursor: pointer !important;
+  }
+
+  .plate-label {
+    color: var(--accent);
+    font-size: 1.1rem;
+    font-weight: 900;
+    letter-spacing: 0.5px;
+  }
+</style>
+
 <div class="page-title">Vehículos <span>Activos</span></div>
 
+<div class="card" style="margin-bottom: 1.5rem; border-left: 4px solid var(--accent);">
+  <div class="form-group" style="margin-bottom: 0;">
+    <label style="color: var(--accent); font-weight: bold;">🔍 BUSCAR EN PATIO</label>
+    <input type="text" id="buscadorActivos" class="form-control" placeholder="Escriba la placa..." onkeyup="filtrarActivos()">
+  </div>
+</div>
+
 <div class="table-wrap">
-  <table>
+  <table style="width:100%">
     <thead>
       <tr>
+        <th style="width: 40px;">#</th>
         <th>Placa</th>
         <th>Tipo</th>
-        <th>Marca</th>
-        <th>Celular</th>
         <th>Entrada</th>
         <th>Tiempo</th>
         <th>Valor Est.</th>
@@ -19,28 +61,47 @@
     </thead>
     <tbody>
     {% for item in lista %}
-    <tr>
-      <td><b style="font-size: 1.1rem;">{{ item.reg.placa }}</b></td>
+    <tr onclick="toggleDetalles('det-{{ item.reg.id }}')">
+      <td style="color: var(--text2); font-size: 0.85rem;">{{ loop.index }}</td>
+      
+      <td><b class="plate-label">{{ item.reg.placa }}</b></td>
       <td>{{ item.reg.tipo|capitalize }}</td>
-      <td>{{ item.reg.marca or '---' }}</td>
-      <td>{{ item.reg.celular or '---' }}</td>
       <td style="font-size:.82rem">{{ item.reg.hora_entrada.split(' ')[1] }}</td>
       <td><span class="badge badge-blue">{{ item.tiempo }}</span></td>
       <td style="color:var(--accent);font-weight:700">
         ${{ "{:,.0f}".format(item.valor_est|int).replace(',', '.') }}
       </td>
       <td>
-        <div style="display: flex; gap: 5px;">
+        <div style="display: flex; gap: 5px;" onclick="event.stopPropagation();">
             <a href="{{ url_for('ticket_entrada', ticket=item.reg.ticket_num) }}" class="btn btn-secondary btn-sm" title="Reimprimir Ticket">
-                🎟️ Ticket
+                🎟️
             </a>
             <a href="{{ url_for('salida_form', placa=item.reg.placa) }}" class="btn btn-danger btn-sm">Salida</a>
         </div>
       </td>
     </tr>
+
+    <tr id="det-{{ item.reg.id }}" style="display:none; border-left: 6px solid var(--accent);">
+      <td colspan="7">
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; font-size: 0.95rem; padding: 1.2rem;">
+          <div>
+            <p style="margin:4px 0"><strong>🚗 Marca/Modelo:</strong> {{ item.reg.marca or '---' }}</p>
+            <p style="margin:4px 0"><strong>📞 Celular:</strong> {{ item.reg.celular or '---' }}</p>
+          </div>
+          <div>
+            <p style="margin:4px 0"><strong>🎫 Ticket No:</strong> {{ item.reg.ticket_num }}</p>
+            <p style="margin:4px 0"><strong>📝 Observaciones:</strong> 
+              <span style="color:#555; font-style:italic">
+                {{ item.reg.observaciones if item.reg.observaciones else 'Sin novedades registradas' }}
+              </span>
+            </p>
+          </div>
+        </div>
+      </td>
+    </tr>
     {% else %}
     <tr>
-      <td colspan="8" style="text-align:center;color:var(--text2);padding:2rem">No hay vehículos en el patio</td>
+      <td colspan="7" style="text-align:center;color:var(--text2);padding:2rem">No hay vehículos en el patio</td>
     </tr>
     {% endfor %}
     </tbody>
@@ -48,8 +109,40 @@
 </div>
 
 <script>
-  setTimeout(function(){
-    location.reload();
-  }, 60000);
+// Muestra/Oculta el recuadro gris de detalles
+function toggleDetalles(id) {
+  const el = document.getElementById(id);
+  el.style.display = (el.style.display === 'none') ? 'table-row' : 'none';
+}
+
+// Filtra la tabla por placa mientras escribes
+function filtrarActivos() {
+  const input = document.getElementById("buscadorActivos");
+  const filter = input.value.toUpperCase();
+  const tr = document.querySelectorAll(".table-wrap tbody tr");
+
+  tr.forEach(row => {
+    // Solo buscamos en las filas principales (las que no tienen id det-)
+    if (!row.id.includes('det-')) {
+      const placaCol = row.getElementsByTagName("td")[1];
+      if (placaCol) {
+        const text = placaCol.textContent || placaCol.innerText;
+        if (text.toUpperCase().indexOf(filter) > -1) {
+          row.style.display = "";
+        } else {
+          row.style.display = "none";
+          // Si ocultamos la fila, también cerramos su detalle por si estaba abierto
+          const match = row.getAttribute("onclick").match(/'([^']+)'/);
+          if(match) document.getElementById(match[1]).style.display = "none";
+        }
+      }
+    }
+  });
+}
+
+// Recarga automática cada 60 segundos para actualizar los tiempos
+setTimeout(function(){
+  location.reload();
+}, 60000);
 </script>
 {% endblock %}
