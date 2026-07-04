@@ -97,9 +97,9 @@
       <div style="margin-top: 10px; border: 1px solid #000; padding: 5px; text-align: center; font-size: 0.65rem;">
         <b style="font-size: 0.75rem;">SEGUROS MUNDIAL</b><br>
         Póliza R.C. Extracontractual:<br>
-        <b>No. {{ poliza }}</b><br>
-        Certificado: <b>{{ certificado }}</b><br>
-        Vigencia: {{ vigencia }}
+        <b>No. {{ poliza|default('') }}</b><br>
+        Certificado: <b>{{ certificado|default('') }}</b><br>
+        Vigencia: {{ vigencia|default('') }}
       </div>
 
       <div style="margin-top: 15px; border-top: 2px solid #000; padding-top: 8px; text-align: center; font-weight: bold;">
@@ -111,7 +111,9 @@
 </div>
 
 <div class="ticket-actions" style="text-align: center; margin-top: 20px; padding-bottom: 40px;">
-  <button onclick="window.print()" class="btn-print">🖨️ Imprimir Ticket</button>
+  <button onclick="imprimirRawBT()" class="btn-print btn-rawbt">🖨️ Imprimir en Térmica</button>
+  <br><br>
+  <button onclick="window.print()" class="btn-print-alt">Imprimir con el navegador (respaldo)</button>
   <br><br>
   <a href="{{ url_for('inicio') }}" style="text-decoration: none; color: #888; font-size: 0.9rem;">← Volver al Menú Principal</a>
 </div>
@@ -137,6 +139,16 @@
     color: white; 
     font-size: 1rem; 
   }
+  .btn-print-alt {
+    padding: 8px 24px;
+    border-radius: 30px;
+    cursor: pointer;
+    background: transparent;
+    border: 1px solid #666;
+    font-weight: normal;
+    color: #ccc;
+    font-size: 0.8rem;
+  }
 
   @media print {
     .navbar, .ticket-actions { display: none !important; }
@@ -145,4 +157,154 @@
     body { background: white !important; }
   }
 </style>
+
+<script>
+  // ─── Datos del ticket, inyectados desde Flask/Jinja ─────────────
+  const ticketData = {
+    tipo:          {{ tipo | tojson }},
+    ticketNum:     {{ ("%05d"|format(reg.ticket_num)) | tojson }},
+    placa:         {{ reg.placa | tojson }},
+    vehiculoTipo:  {{ (reg.tipo | capitalize) | tojson }},
+    marca:         {{ (reg.marca or '---') | tojson }},
+    horaEntrada:   {{ reg.hora_entrada | tojson }},
+    horaSalida:    {{ (reg.hora_salida if tipo == 'salida' else '') | tojson }},
+    tiempoStr:     {{ (tiempo_str if tipo == 'salida' else '') | tojson }},
+    valor:         {{ (reg.valor | int if tipo == 'salida' else 0) | tojson }},
+    cajero:        {{ (reg.cajero or 'admin') | tojson }},
+    poliza:        {{ poliza | default('') | tojson }},
+    certificado:   {{ certificado | default('') | tojson }},
+    vigencia:      {{ vigencia | default('') | tojson }}
+  };
+
+  // ─── Formatea el valor en pesos: 13000 -> $13.000 ───────────────
+  function formatearPesos(valor) {
+    return "$" + Number(valor).toLocaleString("es-CO");
+  }
+
+  // ─── Quita tildes/ñ para evitar caracteres raros en la impresora ──
+  function limpiarTexto(str) {
+    return String(str)
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/ñ/g, "n").replace(/Ñ/g, "N")
+      .replace(/[^\x00-\x7F]/g, "");
+  }
+
+  function textoABytes(str) {
+    return Array.from(new TextEncoder().encode(limpiarTexto(str)));
+  }
+
+  // ─── Arma los comandos ESC/POS reales (binarios) del ticket ─────
+  function construirBytesTicket(d) {
+    const ESC = 0x1B, GS = 0x1D, LF = 0x0A;
+    let b = [];
+    const push = (...arr) => b.push(...arr);
+    const txt = (s) => push(...textoABytes(s));
+    const nl = (n = 1) => { for (let i = 0; i < n; i++) push(LF); };
+    const alignC = () => push(ESC, 0x61, 1);
+    const alignL = () => push(ESC, 0x61, 0);
+    const boldOn = () => push(ESC, 0x45, 1);
+    const boldOff = () => push(ESC, 0x45, 0);
+    const bigOn = () => push(GS, 0x21, 0x11);
+    const bigOff = () => push(GS, 0x21, 0x00);
+    const linea = () => { txt("--------------------------------"); nl(); };
+
+    push(ESC, 0x40); // inicializa la impresora
+
+    alignC(); bigOn(); boldOn();
+    txt("PARQUEADERO"); nl();
+    txt("EL PUENTE"); nl();
+    bigOff(); boldOff();
+    txt("Nit: 1.151.952.649-3 - No Resp. IVA"); nl();
+    txt("Cra 4 # 5-26 - Tel: 3152775288"); nl();
+    txt("Horario: 7:00am - 7:00pm"); nl();
+    linea();
+
+    boldOn();
+    txt("TICKET DE " + d.tipo.toUpperCase()); nl();
+    txt("N. " + d.ticketNum); nl();
+    boldOff();
+    linea();
+
+    bigOn(); boldOn();
+    txt(d.placa); nl();
+    bigOff(); boldOff();
+    linea();
+
+    alignL();
+    txt("Tipo: " + d.vehiculoTipo); nl();
+    txt("Marca: " + d.marca); nl();
+    txt("Entrada: " + d.horaEntrada); nl();
+
+    if (d.tipo === "salida") {
+      txt("Salida: " + d.horaSalida); nl();
+      txt("Tiempo total: " + d.tiempoStr); nl();
+      alignC(); linea();
+      txt("TOTAL A PAGAR"); nl();
+      bigOn(); boldOn();
+      txt(formatearPesos(d.valor)); nl();
+      bigOff(); boldOff();
+    } else {
+      alignC(); linea();
+      if (d.vehiculoTipo.toLowerCase() === "carro") {
+        boldOn(); txt("$4.000 Primera Hora"); boldOff(); nl();
+        txt("$3.500 Fraccion Adicional"); nl();
+        txt("Dia completo: $13.000"); nl();
+      } else {
+        boldOn(); txt("$2.500 Hora o Fraccion"); boldOff(); nl();
+        txt("Dia completo: $7.000"); nl();
+      }
+    }
+
+    alignC(); linea();
+    alignL();
+    txt("Atendido por: " + d.cajero); nl();
+    alignC(); linea();
+
+    boldOn(); txt("-- REGLAMENTO --"); boldOff(); nl();
+    alignL();
+    txt("El vehiculo se entrega al portador"); nl();
+    txt("del recibo. No aceptamos ordenes"); nl();
+    txt("telefonicas ni escritas. No"); nl();
+    txt("respondemos por objetos, hurto ni"); nl();
+    txt("danos de terceros."); nl();
+    alignC(); linea();
+
+    boldOn(); txt("SEGUROS MUNDIAL"); boldOff(); nl();
+    txt("Poliza R.C. Extracontractual:"); nl();
+    txt("No. " + d.poliza); nl();
+    txt("Certificado: " + d.certificado); nl();
+    txt("Vigencia: " + d.vigencia); nl();
+    linea();
+
+    boldOn(); txt("GRACIAS POR SU VISITA!"); boldOff(); nl();
+    txt("Sistema v2.0"); nl();
+    nl(3);
+
+    // Corte de papel (si tu impresora no corta automatico, se ignora)
+    push(GS, 0x56, 0x42, 0x00);
+
+    return Uint8Array.from(b);
+  }
+
+  // ─── Convierte bytes binarios a base64 (a prueba de datos grandes) ─
+  function bytesABase64(bytes) {
+    let binary = "";
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+    }
+    return btoa(binary);
+  }
+
+  // ─── Dispara la impresión vía RawBT (debe estar instalado) ──────
+  function imprimirRawBT() {
+    const bytes = construirBytesTicket(ticketData);
+    const base64 = bytesABase64(bytes);
+    const link = "intent:base64," + base64 +
+      "#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;";
+    window.location.href = link;
+  }
+
+</script>
+
 {% endblock %}
