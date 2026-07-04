@@ -4,6 +4,8 @@ import pytz
 import calendar
 from datetime import datetime, timedelta
 from functools import wraps
+from io import BytesIO
+from openpyxl import Workbook, load_workbook
 
 app = Flask(__name__)
 app.secret_key = "parqueadero_el_puente_2026"
@@ -11,6 +13,11 @@ app.secret_key = "parqueadero_el_puente_2026"
 POLIZA_NUM = "C-250004843"
 CERTIFICADO_NUM = "10402089"
 VIGENCIA_POLIZA = "Marzo 14 de 2026 a Marzo 14 de 2027"
+
+# ─── Clave del agente de impresión (cámbiala por algo único tuyo) ──
+# El agente que corre en el PC de la caseta usa esta misma clave
+# para poder consultar/marcar los tickets pendientes de imprimir.
+PRINTER_API_KEY = os.environ.get("PRINTER_API_KEY", "puente2026_imprimir")
 
 def get_colombia_time():
     # Creamos la zona horaria de Bogotá
@@ -108,7 +115,9 @@ def init_db():
         ("observaciones", "TEXT"),
         ("anulado", "INTEGER DEFAULT 0"),
         ("motivo_anulacion", "TEXT"),
-        ("valor_real", "REAL DEFAULT 0")
+        ("valor_real", "REAL DEFAULT 0"),
+        ("impreso_entrada", "INTEGER DEFAULT 0"),
+        ("impreso_salida", "INTEGER DEFAULT 0")
     ]
     
     for col in columnas_parqueadero:
@@ -195,6 +204,20 @@ def get_consecutivo(conn):
     conn.commit()
     res = conn.execute("SELECT numero FROM consecutivo WHERE id = 1").fetchone()
     return res["numero"]
+
+def _normalizar_fecha_excel(valor):
+    """Convierte un valor de celda de Excel (fecha o texto) a 'AAAA-MM-DD'."""
+    if valor is None or valor == "":
+        return ""
+    if hasattr(valor, "strftime"):  # datetime.datetime o datetime.date
+        return valor.strftime("%Y-%m-%d")
+    texto = str(valor).strip()
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%Y/%m/%d"):
+        try:
+            return datetime.strptime(texto, fmt).strftime("%Y-%m-%d")
+        except ValueError:
+            continue
+    return texto  # se guarda tal cual si no se pudo interpretar
 
 # ─── Rutas ───────────────────────────────────────────────────────
 @app.route("/login", methods=["GET","POST"])
@@ -529,7 +552,12 @@ def mensualidades():
             except: pass
         lista.append({'reg': fila, 'alerta': alerta})
     conn.close()
-    return render_template("mensualidades.html", lista=lista)
+
+    mensaje_carga = request.args.get("resultado")
+    error_carga = request.args.get("error")
+
+    return render_template("mensualidades.html", lista=lista,
+                           mensaje_carga=mensaje_carga, error_carga=error_carga)
 
 @app.route("/eliminar_mensualidad/<int:id>")
 @login_required
@@ -538,7 +566,107 @@ def eliminar_mensualidad(id):
     conn.execute("DELETE FROM mensualidades WHERE id = ?", (id,))
     conn.commit()
     conn.close()
-    return redirect(url_for('mensualidades'))    
+    return redirect(url_for('mensualidades'))
+
+# ─── Plantilla y carga masiva de mensualidades por Excel ─────────
+@app.route("/mensualidades/plantilla_excel")
+@login_required
+def plantilla_excel_mensualidades():
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Mensualidades"
+
+    encabezados = [
+        "Nombre", "Placa", "Telefono", "Modelo", "Color",
+        "Tipo (carro/moto)", "Fecha Inicio (AAAA-MM-DD)",
+        "Fecha Fin (AAAA-MM-DD)", "Estado (Activo/Inactivo)", "Observaciones"
+    ]
+    ws.append(encabezados)
+    ws.append([
+        "Juan Perez", "ABC123", "3001234567", "Mazda 3", "Rojo",
+        "carro", "2026-01-01", "2026-12-31", "Activo", "Cliente frecuente"
+    ])
+
+    for idx, encabezado in enumerate(encabezados, start=1):
+        letra = ws.cell(row=1, column=idx).column_letter
+        ws.column_dimensions[letra].width = max(18, len(encabezado) + 2)
+
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return send_file(
+        buf,
+        as_attachment=True,
+        download_name="plantilla_mensualidades.xlsx",
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+@app.route("/mensualidades/cargar_excel", methods=["POST"])
+@login_required
+def cargar_excel_mensualidades():
+    archivo = request.files.get("archivo_excel")
+    if not archivo or archivo.filename == "":
+        return redirect(url_for("mensualidades", error="No seleccionaste ningún archivo."))
+
+    try:
+        wb = load_workbook(archivo, data_only=True)
+        ws = wb.active
+    except Exception as e:
+        return redirect(url_for("mensualidades", error=f"No se pudo leer el archivo: {e}"))
+
+    conn = get_db()
+    insertados = 0
+    actualizados = 0
+    errores = []
+
+    for i, fila in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+        if not fila or all(c is None for c in fila):
+            continue
+        try:
+            nombre = str(fila[0]).strip() if len(fila) > 0 and fila[0] else ""
+            placa = str(fila[1]).strip().upper() if len(fila) > 1 and fila[1] else ""
+            telefono = str(fila[2]).strip() if len(fila) > 2 and fila[2] else ""
+            modelo = str(fila[3]).strip() if len(fila) > 3 and fila[3] else ""
+            color = str(fila[4]).strip() if len(fila) > 4 and fila[4] else ""
+            tipo = str(fila[5]).strip().lower() if len(fila) > 5 and fila[5] else "carro"
+            fecha_inicio = _normalizar_fecha_excel(fila[6]) if len(fila) > 6 else ""
+            fecha_fin = _normalizar_fecha_excel(fila[7]) if len(fila) > 7 else ""
+            estado = str(fila[8]).strip() if len(fila) > 8 and fila[8] else "Activo"
+            observaciones = str(fila[9]).strip() if len(fila) > 9 and fila[9] else ""
+
+            if not placa:
+                errores.append(f"Fila {i}: falta la placa, se omitió")
+                continue
+            if tipo not in ("carro", "moto"):
+                tipo = "carro"
+
+            check = conn.execute("SELECT id FROM mensualidades WHERE placa = ?", (placa,)).fetchone()
+            if check:
+                conn.execute("""UPDATE mensualidades SET
+                    nombre=?, telefono=?, modelo=?, color=?, tipo=?,
+                    fecha_inicio=?, fecha_fin=?, estado=?, observaciones=?
+                    WHERE placa=?""",
+                    (nombre, telefono, modelo, color, tipo,
+                     fecha_inicio, fecha_fin, estado, observaciones, placa))
+                actualizados += 1
+            else:
+                conn.execute("""INSERT INTO mensualidades
+                    (nombre, placa, telefono, modelo, color, tipo, fecha_inicio, fecha_fin, estado, observaciones)
+                    VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                    (nombre, placa, telefono, modelo, color, tipo,
+                     fecha_inicio, fecha_fin, estado, observaciones))
+                insertados += 1
+        except Exception as e:
+            errores.append(f"Fila {i}: {e}")
+
+    conn.commit()
+    conn.close()
+
+    mensaje = f"{insertados} mensualidad(es) nueva(s), {actualizados} actualizada(s)."
+    if errores:
+        mensaje += f" {len(errores)} fila(s) con problemas: " + " | ".join(errores[:5])
+
+    return redirect(url_for("mensualidades", resultado=mensaje))
     
 # ─── Tarifas (solo admin) ─────────────────────────────────────────
 @app.route("/tarifas", methods=["GET","POST"])
@@ -600,6 +728,54 @@ def api_valor_estimado():
     valor = int(calcular_valor(reg["tipo"], mins, tarifas))
     
     return jsonify({"tiempo": f"{h}h {m}m", "valor": valor, "mins": mins})
+
+# ─── API para el agente de impresión (DigitalPOS por IP) ─────────
+def _check_printer_key():
+    return request.headers.get("X-API-KEY") == PRINTER_API_KEY
+
+@app.route("/api/pendientes_impresion")
+def api_pendientes_impresion():
+    if not _check_printer_key():
+        return jsonify({"error": "no autorizado"}), 401
+
+    conn = get_db()
+    entradas = conn.execute("""
+        SELECT id, placa, tipo, hora_entrada, ticket_num, marca, celular
+        FROM parqueadero
+        WHERE (impreso_entrada IS NULL OR impreso_entrada = 0)
+        ORDER BY id ASC
+    """).fetchall()
+
+    salidas = conn.execute("""
+        SELECT id, placa, tipo, hora_entrada, hora_salida, valor, ticket_num, metodo_pago
+        FROM parqueadero
+        WHERE hora_salida IS NOT NULL
+        AND (impreso_salida IS NULL OR impreso_salida = 0)
+        ORDER BY id ASC
+    """).fetchall()
+    conn.close()
+
+    return jsonify({
+        "entradas": [dict(r) for r in entradas],
+        "salidas": [dict(r) for r in salidas],
+        "poliza": POLIZA_NUM,
+        "certificado": CERTIFICADO_NUM,
+        "vigencia": VIGENCIA_POLIZA
+    })
+
+@app.route("/api/marcar_impreso/<int:id>/<tipo>", methods=["POST"])
+def api_marcar_impreso(id, tipo):
+    if not _check_printer_key():
+        return jsonify({"error": "no autorizado"}), 401
+    if tipo not in ("entrada", "salida"):
+        return jsonify({"error": "tipo invalido"}), 400
+
+    columna = "impreso_entrada" if tipo == "entrada" else "impreso_salida"
+    conn = get_db()
+    conn.execute(f"UPDATE parqueadero SET {columna} = 1 WHERE id = ?", (id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
 
 # ─── Perfil y Seguridad ──────────────────────────────────────────
 @app.route("/perfil", methods=["GET", "POST"])
