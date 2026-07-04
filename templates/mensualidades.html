@@ -68,6 +68,36 @@
   </form>
 </div>
 
+<div class="card" style="max-width:850px;margin-bottom:1.5rem;border-left:4px solid var(--accent)">
+  <div style="font-weight:700;margin-bottom:1rem;color:var(--text2)">📊 Carga masiva por Excel</div>
+
+  {% if mensaje_carga %}
+    <div style="background:rgba(0,210,141,0.12); border:1px solid #00d28d; color:#00d28d; padding:10px 14px; border-radius:8px; margin-bottom:1rem; font-size:0.9rem;">
+      ✅ {{ mensaje_carga }}
+    </div>
+  {% endif %}
+  {% if error_carga %}
+    <div style="background:rgba(255,85,85,0.12); border:1px solid #ff5555; color:#ff5555; padding:10px 14px; border-radius:8px; margin-bottom:1rem; font-size:0.9rem;">
+      ⚠️ {{ error_carga }}
+    </div>
+  {% endif %}
+
+  <p style="color:var(--text2); font-size:0.9rem; margin-bottom:1rem;">
+    Sube un Excel con varias mensualidades a la vez. Si una placa ya existe, se actualiza; si no existe, se crea.
+  </p>
+
+  <div style="display:flex; align-items:center; gap:1rem; flex-wrap:wrap;">
+    <a href="{{ url_for('plantilla_excel_mensualidades') }}" class="btn" style="background:var(--surface); border:1px solid var(--border); color:var(--text);">
+      📥 Descargar plantilla
+    </a>
+
+    <form action="{{ url_for('cargar_excel_mensualidades') }}" method="POST" enctype="multipart/form-data" style="display:flex; align-items:center; gap:.6rem; margin:0;">
+      <input type="file" name="archivo_excel" accept=".xlsx,.xls" class="form-control" required style="max-width:260px;">
+      <button type="submit" class="btn btn-primary">Cargar Excel</button>
+    </form>
+  </div>
+</div>
+
 <div class="card" style="margin-bottom: 1.5rem; border-left: 4px solid var(--accent);">
   <div class="form-group" style="margin-bottom: 0;">
     <label style="color: var(--accent); font-weight: bold;">🔍 BUSCAR CLIENTE O PLACA</label>
