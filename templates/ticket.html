@@ -202,12 +202,17 @@
   }
 
   @media print {
-    .navbar, .ticket-actions { display: none !important; }
-    .ticket-container, .ticket-wrap { display: none !important; }
-    body { background: white !important; }
-
+    body * {
+      visibility: hidden;
+    }
+    .print-compact, .print-compact * {
+      visibility: visible;
+    }
     .print-compact {
       display: block !important;
+      position: absolute;
+      top: 0;
+      left: 0;
       width: 100%;
       color: #000;
       font-family: 'Courier New', Courier, monospace;
@@ -219,6 +224,9 @@
     .pc-linea {
       border-top: 1px dashed #000;
       margin: 4px 0;
+    }
+    @page {
+      margin: 0;
     }
   }
 </style>
