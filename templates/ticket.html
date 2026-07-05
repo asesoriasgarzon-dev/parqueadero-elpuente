@@ -203,29 +203,40 @@
 
   @media print {
     body * {
-      visibility: hidden;
+      visibility: hidden !important;
+      height: 0 !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      overflow: hidden !important;
+      border: 0 !important;
     }
+
     .print-compact, .print-compact * {
-      visibility: visible;
+      visibility: visible !important;
+      height: auto !important;
+      overflow: visible !important;
     }
+
     .print-compact {
       display: block !important;
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
+      position: static !important;
+      width: 100% !important;
       color: #000;
       font-family: 'Courier New', Courier, monospace;
       font-size: 12px;
       line-height: 1.35;
-      padding: 0;
-      margin: 0;
+      padding: 0 !important;
+      margin: 0 !important;
     }
+
     .pc-linea {
-      border-top: 1px dashed #000;
-      margin: 4px 0;
+      border-top: 1px dashed #000 !important;
+      margin: 4px 0 !important;
+      height: auto !important;
     }
+
     @page {
+      size: 80mm auto;
       margin: 0;
     }
   }
