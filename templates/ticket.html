@@ -2,6 +2,52 @@
 {% block title %}Ticket – El Puente{% endblock %}
 {% block content %}
 
+<!-- ─── Versión COMPACTA solo para impresión (USB/navegador) ────── -->
+<!-- En pantalla no se ve (display:none). Al imprimir, esta reemplaza
+     a la versión bonita de arriba, que se oculta con @media print. -->
+<div class="print-compact">
+  <div style="text-align:center; font-weight:bold; font-size:13px;">PARQUEADERO EL PUENTE</div>
+  <div style="text-align:center; font-size:10px;">Cra 4 # 5-26 - Tel: 3152775288</div>
+  <div class="pc-linea"></div>
+
+  <div>Ticket: {{ "%05d"|format(reg.ticket_num) }}&nbsp;&nbsp;&nbsp;{{ tipo.upper() }}</div>
+  <div>Fecha: {{ reg.hora_entrada }}</div>
+
+  <div style="text-align:center; font-weight:bold; font-size:20px; margin:4px 0;">{{ reg.placa }}</div>
+
+  <div>Tipo: {{ reg.tipo|capitalize }}&nbsp;&nbsp;&nbsp;Marca: {{ reg.marca or '---' }}</div>
+
+  {% if tipo == 'salida' %}
+    <div>Entrada: {{ reg.hora_entrada }}</div>
+    <div>Salida:&nbsp;&nbsp;{{ reg.hora_salida }}</div>
+    <div>Tiempo:&nbsp;&nbsp;{{ tiempo_str }}</div>
+    <div class="pc-linea"></div>
+    <div style="text-align:center; font-weight:bold;">TOTAL A PAGAR</div>
+    <div style="text-align:center; font-weight:bold; font-size:18px;">
+      ${{ "{:,.0f}".format(reg.valor|int).replace(',', '.') }}
+    </div>
+  {% else %}
+    <div class="pc-linea"></div>
+    {% if reg.tipo == 'carro' %}
+      <div>$4.000 primera hora</div>
+      <div>$3.500 fracción adicional</div>
+      <div>Día completo: $13.000</div>
+    {% else %}
+      <div>$2.500 hora o fracción</div>
+      <div>Día completo: $7.000</div>
+    {% endif %}
+  {% endif %}
+
+  <div class="pc-linea"></div>
+  <div>Atendido: {{ reg.cajero or 'admin' }}</div>
+  <div>Conserve este ticket para su salida</div>
+  <div class="pc-linea"></div>
+  <div>Seguros Mundial - Póliza {{ poliza|default('') }}</div>
+  <div>Cert: {{ certificado|default('') }}&nbsp;&nbsp;Vig: {{ vigencia|default('') }}</div>
+  <div class="pc-linea"></div>
+  <div style="text-align:center; font-weight:bold;">¡GRACIAS POR SU VISITA!</div>
+</div>
+
 <div class="ticket-container">
   <div class="ticket-wrap" id="ticketPrint">
     
@@ -150,11 +196,30 @@
     font-size: 0.8rem;
   }
 
+  /* Versión compacta: oculta en pantalla, solo se usa al imprimir */
+  .print-compact {
+    display: none;
+  }
+
   @media print {
     .navbar, .ticket-actions { display: none !important; }
-    .ticket-container { padding: 0; background: white; }
-    .ticket-wrap { width: 100%; padding: 0; margin: 0; }
+    .ticket-container, .ticket-wrap { display: none !important; }
     body { background: white !important; }
+
+    .print-compact {
+      display: block !important;
+      width: 100%;
+      color: #000;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 12px;
+      line-height: 1.35;
+      padding: 0;
+      margin: 0;
+    }
+    .pc-linea {
+      border-top: 1px dashed #000;
+      margin: 4px 0;
+    }
   }
 </style>
 
@@ -210,74 +275,59 @@
 
     push(ESC, 0x40); // inicializa la impresora
 
-    alignC(); bigOn(); boldOn();
-    txt("PARQUEADERO"); nl();
-    txt("EL PUENTE"); nl();
-    bigOff(); boldOff();
-    txt("Nit: 1.151.952.649-3 - No Resp. IVA"); nl();
-    txt("Cra 4 # 5-26 - Tel: 3152775288"); nl();
-    txt("Horario: 7:00am - 7:00pm"); nl();
-    linea();
-
-    boldOn();
-    txt("TICKET DE " + d.tipo.toUpperCase()); nl();
-    txt("N. " + d.ticketNum); nl();
+    alignC(); boldOn();
+    txt("PARQUEADERO EL PUENTE"); nl();
     boldOff();
-    linea();
-
-    bigOn(); boldOn();
-    txt(d.placa); nl();
-    bigOff(); boldOff();
+    txt("Cra 4 # 5-26 - Tel: 3152775288"); nl();
     linea();
 
     alignL();
-    txt("Tipo: " + d.vehiculoTipo); nl();
-    txt("Marca: " + d.marca); nl();
-    txt("Entrada: " + d.horaEntrada); nl();
+    txt("Ticket: " + d.ticketNum + "   " + d.tipo.toUpperCase()); nl();
+    txt("Fecha: " + d.horaEntrada); nl();
+
+    alignC(); bigOn(); boldOn();
+    txt(d.placa); nl();
+    bigOff(); boldOff();
+
+    alignL();
+    txt("Tipo: " + d.vehiculoTipo + "   Marca: " + d.marca); nl();
 
     if (d.tipo === "salida") {
-      txt("Salida: " + d.horaSalida); nl();
-      txt("Tiempo total: " + d.tiempoStr); nl();
-      alignC(); linea();
+      txt("Entrada: " + d.horaEntrada); nl();
+      txt("Salida:  " + d.horaSalida); nl();
+      txt("Tiempo:  " + d.tiempoStr); nl();
+      linea();
+      alignC(); boldOn();
       txt("TOTAL A PAGAR"); nl();
-      bigOn(); boldOn();
+      bigOn();
       txt(formatearPesos(d.valor)); nl();
       bigOff(); boldOff();
     } else {
-      alignC(); linea();
+      linea();
+      alignL();
       if (d.vehiculoTipo.toLowerCase() === "carro") {
-        boldOn(); txt("$4.000 Primera Hora"); boldOff(); nl();
-        txt("$3.500 Fraccion Adicional"); nl();
+        txt("$4.000 primera hora"); nl();
+        txt("$3.500 fraccion adicional"); nl();
         txt("Dia completo: $13.000"); nl();
       } else {
-        boldOn(); txt("$2.500 Hora o Fraccion"); boldOff(); nl();
+        txt("$2.500 hora o fraccion"); nl();
         txt("Dia completo: $7.000"); nl();
       }
     }
 
-    alignC(); linea();
+    linea();
     alignL();
-    txt("Atendido por: " + d.cajero); nl();
-    alignC(); linea();
-
-    boldOn(); txt("-- REGLAMENTO --"); boldOff(); nl();
-    alignL();
-    txt("El vehiculo se entrega al portador"); nl();
-    txt("del recibo. No aceptamos ordenes"); nl();
-    txt("telefonicas ni escritas. No"); nl();
-    txt("respondemos por objetos, hurto ni"); nl();
-    txt("danos de terceros."); nl();
-    alignC(); linea();
-
-    boldOn(); txt("SEGUROS MUNDIAL"); boldOff(); nl();
-    txt("Poliza R.C. Extracontractual:"); nl();
-    txt("No. " + d.poliza); nl();
-    txt("Certificado: " + d.certificado); nl();
-    txt("Vigencia: " + d.vigencia); nl();
+    txt("Atendido: " + d.cajero); nl();
+    txt("Conserve este ticket para su salida"); nl();
     linea();
 
-    boldOn(); txt("GRACIAS POR SU VISITA!"); boldOff(); nl();
-    txt("Sistema v2.0"); nl();
+    txt("Seguros Mundial - Poliza " + d.poliza); nl();
+    txt("Cert: " + d.certificado + "  Vig: " + d.vigencia); nl();
+    linea();
+
+    alignC(); boldOn();
+    txt("GRACIAS POR SU VISITA!"); nl();
+    boldOff();
     nl(3);
 
     // Corte de papel (si tu impresora no corta automatico, se ignora)
