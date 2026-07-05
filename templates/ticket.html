@@ -7,9 +7,9 @@
      a la versión bonita de arriba, que se oculta con @media print. -->
 <div class="print-compact">
   <div style="display:flex; justify-content:space-between; align-items:center; width:100%; margin-bottom:4px;">
-    <img src="{{ url_for('static', filename='img/carro.png') }}" class="pc-icon" style="width:28px; height:auto;">
-    <img src="{{ url_for('static', filename='img/P.png') }}" class="pc-icon" style="width:34px; height:auto;">
-    <img src="{{ url_for('static', filename='img/moto.png') }}" class="pc-icon" style="width:28px; height:auto;">
+    <img src="{{ url_for('static', filename='img/carro.png', _external=True) }}" class="pc-icon" style="width:28px; height:auto;">
+    <img src="{{ url_for('static', filename='img/P.png', _external=True) }}" class="pc-icon" style="width:34px; height:auto;">
+    <img src="{{ url_for('static', filename='img/moto.png', _external=True) }}" class="pc-icon" style="width:28px; height:auto;">
   </div>
   <div class="pc-linea" style="border-top-style:dashed !important; border-top-width:2px !important;"></div>
 
@@ -166,7 +166,7 @@
 <div class="ticket-actions" style="text-align: center; margin-top: 20px; padding-bottom: 40px;">
   <button onclick="imprimirRawBT()" class="btn-print btn-rawbt">🖨️ Imprimir en Térmica</button>
   <br><br>
-  <button onclick="window.print()" class="btn-print-alt">Imprimir con el navegador (respaldo)</button>
+  <button onclick="imprimirCompacto()" class="btn-print-alt">Imprimir con el navegador (respaldo)</button>
   <br><br>
   <a href="{{ url_for('inicio') }}" style="text-decoration: none; color: #888; font-size: 0.9rem;">← Volver al Menú Principal</a>
 </div>
@@ -203,53 +203,16 @@
     font-size: 0.8rem;
   }
 
-  /* Versión compacta: oculta en pantalla, solo se usa al imprimir */
+  /* La versión compacta solo se usa dentro de la ventana emergente de
+     impresión (ver imprimirCompacto() en el script). En esta página
+     normal permanece oculta siempre. */
   .print-compact {
     display: none;
   }
 
-  @media print {
-    body * {
-      visibility: hidden !important;
-      height: 0 !important;
-      margin: 0 !important;
-      padding: 0 !important;
-      overflow: hidden !important;
-      border: 0 !important;
-    }
-
-    .print-compact, .print-compact * {
-      visibility: visible !important;
-      height: auto !important;
-      overflow: visible !important;
-    }
-
-    .print-compact {
-      display: block !important;
-      position: static !important;
-      width: 100% !important;
-      color: #000;
-      font-family: 'Courier New', Courier, monospace;
-      font-size: 12px;
-      line-height: 1.35;
-      padding: 0 !important;
-      margin: 0 !important;
-    }
-
-    .pc-linea {
-      border-top: 1px dashed #000 !important;
-      margin: 4px 0 !important;
-      height: auto !important;
-    }
-
-    .pc-icon {
-      filter: brightness(0) saturate(100%) !important;
-    }
-
-    @page {
-      size: 80mm auto;
-      margin: 0;
-    }
+  .pc-linea {
+    border-top: 1px dashed #000;
+    margin: 4px 0;
   }
 </style>
 
@@ -374,6 +337,47 @@
       binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
     }
     return btoa(binary);
+  }
+
+  // ─── Imprime SOLO el ticket compacto, en una ventana limpia ─────
+  // Esto evita que impresoras/drivers "de solo texto" impriman el
+  // resto de la página (menú, formularios) que quedaba oculto con CSS.
+  function imprimirCompacto() {
+    const contenido = document.querySelector(".print-compact").innerHTML;
+    const ventana = window.open("", "_blank", "width=400,height=600");
+
+    ventana.document.open();
+    ventana.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Ticket</title>
+        <style>
+          @page { size: 80mm auto; margin: 0; }
+          * { box-sizing: border-box; }
+          body {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 12px;
+            line-height: 1.35;
+            color: #000;
+            margin: 0;
+            padding: 6px;
+          }
+          .pc-linea { border-top: 1px dashed #000; margin: 4px 0; }
+          .pc-icon { filter: brightness(0) saturate(100%); }
+        </style>
+      </head>
+      <body>${contenido}</body>
+      </html>
+    `);
+    ventana.document.close();
+
+    ventana.onload = function () {
+      ventana.focus();
+      ventana.print();
+      setTimeout(() => ventana.close(), 500);
+    };
   }
 
   // ─── Dispara la impresión vía RawBT (debe estar instalado) ──────
