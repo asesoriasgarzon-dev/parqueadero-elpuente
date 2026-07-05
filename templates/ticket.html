@@ -6,6 +6,13 @@
 <!-- En pantalla no se ve (display:none). Al imprimir, esta reemplaza
      a la versión bonita de arriba, que se oculta con @media print. -->
 <div class="print-compact">
+  <div style="display:flex; justify-content:space-between; align-items:center; width:100%; margin-bottom:4px;">
+    <img src="{{ url_for('static', filename='img/carro.png') }}" class="pc-icon" style="width:28px; height:auto;">
+    <img src="{{ url_for('static', filename='img/P.png') }}" class="pc-icon" style="width:34px; height:auto;">
+    <img src="{{ url_for('static', filename='img/moto.png') }}" class="pc-icon" style="width:28px; height:auto;">
+  </div>
+  <div class="pc-linea" style="border-top-style:dashed !important; border-top-width:2px !important;"></div>
+
   <div style="text-align:center; font-weight:bold; font-size:13px;">PARQUEADERO EL PUENTE</div>
   <div style="text-align:center; font-size:10px;">Cra 4 # 5-26 - Tel: 3152775288</div>
   <div class="pc-linea"></div>
@@ -13,7 +20,7 @@
   <div>Ticket: {{ "%05d"|format(reg.ticket_num) }}&nbsp;&nbsp;&nbsp;{{ tipo.upper() }}</div>
   <div>Fecha: {{ reg.hora_entrada }}</div>
 
-  <div style="text-align:center; font-weight:bold; font-size:20px; margin:4px 0;">{{ reg.placa }}</div>
+  <div style="text-align:center; font-weight:900; font-size:22px; letter-spacing:2px; margin:5px 0;">{{ reg.placa }}</div>
 
   <div>Tipo: {{ reg.tipo|capitalize }}&nbsp;&nbsp;&nbsp;Marca: {{ reg.marca or '---' }}</div>
 
@@ -233,6 +240,10 @@
       border-top: 1px dashed #000 !important;
       margin: 4px 0 !important;
       height: auto !important;
+    }
+
+    .pc-icon {
+      filter: brightness(0) saturate(100%) !important;
     }
 
     @page {
