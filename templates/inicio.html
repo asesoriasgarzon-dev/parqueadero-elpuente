@@ -4,10 +4,10 @@
 <div class="page-title">Panel <span>Principal</span></div>
 
 <div class="card-grid card-grid-3" style="margin-bottom:2rem">
-  <div class="stat-card">
-    <div class="stat-num">{{ activos }}</div>
-    <div class="stat-label">Vehículos en patio</div>
-  </div>
+  <div class="stat-card" onclick="window.location.href='/activos'">
+  <div class="stat-num">{{ activos }}</div>
+  <div class="stat-label">Vehículos en patio</div>
+</div>
   <div class="stat-card" style="border-top-color:var(--accent2)">
     <div class="stat-num" style="color:var(--accent2)">${{ "{:,}".format(caja_hoy) }}</div>
     <div class="stat-label">Recaudado hoy</div>
