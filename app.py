@@ -236,6 +236,13 @@ def login():
         error = "Usuario o contraseña incorrectos"
     return render_template("login.html", error=error)
 
+@app.route('/activos')
+def activos():
+    conn = get_db_connection()
+    data = conn.execute("SELECT * FROM vehiculos WHERE estado='ACTIVO' ORDER BY entrada DESC").fetchall()
+    conn.close()
+    return render_template("activos.html", vehiculos=data)
+
 @app.route("/logout")
 def logout():
     session.clear()
