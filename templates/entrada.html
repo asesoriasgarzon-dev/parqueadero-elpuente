@@ -69,15 +69,35 @@ placaInput.addEventListener('input', () => {
         if (d.status === 'activo') {
           statusDiv.innerHTML = '<span style="color:var(--warn)">⚠️ Vehículo ya está en el patio. Se redirigirá a salida.</span>';
           setTimeout(() => window.location = `/salida?placa=${val}`, 1500);
-        } else if (d.status === 'conocido') {
-          statusDiv.innerHTML = '<span style="color:var(--accent)">✓ Cliente conocido – datos autocompletados</span>';
+          return;
+        }
+
+        // Mensaje de mensualidad
+        let mensajeExtra = '';
+        if (d.mensualidad) {
+          if (d.mensualidad.tipo === 'activa') {
+            mensajeExtra = `<div style="margin-top:.5rem;padding:.6rem .9rem;background:rgba(0,229,160,.12);border:1px solid var(--accent);border-radius:6px;">
+              <span style="color:var(--accent);font-weight:700;">🟢 MENSUALIDAD ACTIVA</span><br>
+              <span style="font-size:.82rem;color:var(--text2)">Cliente: ${d.mensualidad.nombre} · Válida hasta: ${d.mensualidad.hasta}</span>
+            </div>`;
+          } else {
+            mensajeExtra = `<div style="margin-top:.5rem;padding:.6rem .9rem;background:rgba(255,71,87,.12);border:1px solid var(--danger);border-radius:6px;">
+              <span style="color:var(--danger);font-weight:700;">🔴 MENSUALIDAD VENCIDA</span><br>
+              <span style="font-size:.82rem;color:var(--text2)">Cliente: ${d.mensualidad.nombre} · Venció el: ${d.mensualidad.hasta} — Se cobra tarifa diaria</span>
+            </div>`;
+          }
+        } else {
+          mensajeExtra = `<div style="margin-top:.5rem;padding:.4rem .8rem;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:6px;">
+            <span style="color:var(--text2);font-size:.82rem;">⚪ CLIENTE DIARIO — se cobra tarifa normal</span>
+          </div>`;
+        }
+
+        if (d.status === 'conocido') {
+          statusDiv.innerHTML = `<span style="color:var(--accent)">✓ Cliente conocido – datos autocompletados</span>${mensajeExtra}`;
           if (d.marca) { for(let o of marcaInput.options) if(o.value===d.marca) o.selected=true; }
           if (d.celular) celularInput.value = d.celular;
         } else {
-          statusDiv.innerHTML = '<span style="color:var(--text2)">Placa nueva</span>';
+          statusDiv.innerHTML = `<span style="color:var(--text2)">Placa nueva</span>${mensajeExtra}`;
         }
-      });
-  }, 500);
-});
 </script>
 {% endblock %}
