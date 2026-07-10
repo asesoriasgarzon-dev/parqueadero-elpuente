@@ -320,15 +320,34 @@ def buscar_placa():
     if not placa:
         return jsonify({"status": "vacio"})
     conn = get_db()
+
+    # 1. Verificar si ya está en el patio
     activo = conn.execute("SELECT id FROM parqueadero WHERE placa=? AND hora_salida IS NULL", (placa,)).fetchone()
     if activo:
         conn.close()
         return jsonify({"status": "activo", "placa": placa})
+
+    # 2. Verificar mensualidad
+    hoy = get_colombia_time().strftime("%Y-%m-%d")
+    mensualidad = conn.execute("""
+        SELECT nombre, fecha_fin, estado FROM mensualidades
+        WHERE placa=? ORDER BY fecha_fin DESC LIMIT 1
+    """, (placa,)).fetchone()
+
+    mensualidad_info = None
+    if mensualidad:
+        if mensualidad["estado"] == "Activo" and mensualidad["fecha_fin"] >= hoy:
+            mensualidad_info = {"tipo": "activa", "hasta": mensualidad["fecha_fin"], "nombre": mensualidad["nombre"]}
+        else:
+            mensualidad_info = {"tipo": "vencida", "hasta": mensualidad["fecha_fin"], "nombre": mensualidad["nombre"]}
+
+    # 3. Verificar cliente frecuente
     cliente = conn.execute("SELECT * FROM clientes_frecuentes WHERE placa=?", (placa,)).fetchone()
     conn.close()
+
     if cliente:
-        return jsonify({"status": "conocido", "marca": cliente["marca"], "celular": cliente["celular"]})
-    return jsonify({"status": "nuevo"})
+        return jsonify({"status": "conocido", "marca": cliente["marca"], "celular": cliente["celular"], "mensualidad": mensualidad_info})
+    return jsonify({"status": "nuevo", "mensualidad": mensualidad_info})
 
 # ─── Salida ──────────────────────────────────────────────────────
 @app.route("/salida", methods=["GET","POST"])
