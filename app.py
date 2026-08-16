@@ -96,10 +96,39 @@ def get_db():
     conn.execute("PRAGMA busy_timeout=8000")
     return conn
 
+# ─── Migraciones de esquema (versión controlada) ──────────────────
+# Se sube cada vez que se agrega una tabla/columna nueva al esquema.
+# No gatilla nada por sí sola -- init_db() sigue siendo idempotente por
+# construcción (revisa qué existe antes de crear/alterar) -- pero deja un
+# número visible en la BD (tabla schema_version) para saber, con solo
+# mirar los datos, en qué versión de esquema quedó cada instalación.
+SCHEMA_VERSION = 5
+
+def _columna_existe(conn, tabla, columna):
+    filas = conn.execute(f"PRAGMA table_info({tabla})").fetchall()
+    return any(f["name"] == columna for f in filas)
+
+def _asegurar_columnas(conn, tabla, columnas):
+    """
+    Agrega a `tabla` las columnas de `columnas` (lista de tuplas
+    (nombre, tipo_sql)) que todavía no existan.
+
+    A diferencia del patrón anterior (intentar el ALTER TABLE y tragarse
+    CUALQUIER excepción con "except: pass"), esto revisa explícitamente
+    si la columna ya existe antes de intentar agregarla. Así, si el
+    ALTER TABLE falla por otra razón real -- base de datos bloqueada,
+    disco lleno, permisos -- el error se ve en los logs de arranque de
+    Railway en vez de desaparecer en silencio.
+    """
+    for nombre, tipo_sql in columnas:
+        if not _columna_existe(conn, tabla, nombre):
+            conn.execute(f"ALTER TABLE {tabla} ADD COLUMN {nombre} {tipo_sql}")
+            print(f"[init_db] Columna agregada: {tabla}.{nombre}")
+
 def init_db():
     conn = get_db()
     c = conn.cursor()
-    
+
     # 1. Tabla Parqueadero
     c.execute("""CREATE TABLE IF NOT EXISTS parqueadero (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -168,6 +197,11 @@ def init_db():
         motivo TEXT
     )""")
 
+    # 8. Tabla Schema Version (control de migraciones)
+    c.execute("""CREATE TABLE IF NOT EXISTS schema_version (
+        version INTEGER
+    )""")
+
     # Datos iniciales (Usuarios y Tarifas 2026)
     # NOTA: en instalaciones ya existentes, INSERT OR IGNORE no toca las filas
     # que ya están ahí, así que esto no afecta contraseñas ya migradas a hash.
@@ -196,11 +230,7 @@ def init_db():
         ("impreso_salida_reservado_en", "TEXT"),
     ]
 
-    for col in columnas_parqueadero:
-        try:
-            c.execute(f"ALTER TABLE parqueadero ADD COLUMN {col[0]} {col[1]}")
-        except Exception:
-            pass # La columna ya existe
+    _asegurar_columnas(conn, "parqueadero", columnas_parqueadero)
 
     # Migración one-time del esquema viejo de impresión (0/1) al nuevo
     # (0=pendiente, 2=reservado, 3=impreso). Los tickets que YA estaban
@@ -219,22 +249,25 @@ def init_db():
         ("observaciones", "TEXT")
     ]
     
-    for col in columnas_mensualidades:
-        try:
-            c.execute(f"ALTER TABLE mensualidades ADD COLUMN {col[0]} {col[1]}")
-        except Exception:
-            pass # La columna ya existe
-    
+    _asegurar_columnas(conn, "mensualidades", columnas_mensualidades)
+
     # Actualizar tarifa diaria del carro a $14.000
     c.execute("""
         UPDATE tarifas
         SET valor_dia = 14000
         WHERE tipo = 'carro'
     """)
-    
+
+    # Deja constancia de la versión de esquema con la que quedó esta BD.
+    fila_version = c.execute("SELECT version FROM schema_version").fetchone()
+    if fila_version is None:
+        c.execute("INSERT INTO schema_version (version) VALUES (?)", (SCHEMA_VERSION,))
+    elif fila_version["version"] != SCHEMA_VERSION:
+        c.execute("UPDATE schema_version SET version = ?", (SCHEMA_VERSION,))
+
     conn.commit()
     conn.close()
-    print("Base de datos inicializada y actualizada correctamente.")
+    print(f"Base de datos inicializada y actualizada correctamente (schema_version={SCHEMA_VERSION}).")
 # ─── Auth ────────────────────────────────────────────────────────
 def login_required(f):
     @wraps(f)
@@ -437,13 +470,13 @@ def entrada(tipo):
             mensaje = ("error", "La placa es obligatoria.")
         else:
             conn = get_db()
-            
-            # --- LÍNEA SALVAVIDAS PARA EVITAR ERROR 500 ---
-            try:
-                conn.execute("ALTER TABLE parqueadero ADD COLUMN observaciones TEXT")
-            except:
-                pass # Si la columna ya existe, no hace nada
-            # ----------------------------------------------
+
+            # NOTA: antes aquí había un "ALTER TABLE ... ADD COLUMN" que se
+            # ejecutaba en cada entrada registrada, envuelto en un except
+            # que se tragaba cualquier error (incluso uno real, como BD
+            # bloqueada o disco lleno). El esquema de la tabla ahora se
+            # controla en un único lugar: init_db(), al arrancar la app
+            # (ver ejecutar_migraciones). Esta ruta ya no toca el esquema.
 
             existe = conn.execute("SELECT id FROM parqueadero WHERE placa=? AND hora_salida IS NULL", (placa,)).fetchone()
             if existe:
@@ -916,14 +949,12 @@ def caja():
 @login_required
 def mensualidades():
     conn = get_db()
-    
-    # REPARACIÓN: Agrega las columnas de la dueña si no existen
-    for col in ["telefono", "modelo", "color", "observaciones"]:
-        try:
-            conn.execute(f"ALTER TABLE mensualidades ADD COLUMN {col} TEXT")
-            conn.commit()
-        except:
-            pass
+
+    # NOTA: antes aquí había un "ALTER TABLE" por columna que se ejecutaba
+    # en CADA visita a esta página (incluyendo cada GET), envuelto en un
+    # except que se tragaba cualquier error real. El esquema ahora se
+    # controla en un único lugar: init_db(), al arrancar la app (ver
+    # ejecutar_migraciones). Esta ruta ya no toca el esquema.
 
     if request.method == "POST":
         # Crear/editar mensualidades queda restringido a admin (la
