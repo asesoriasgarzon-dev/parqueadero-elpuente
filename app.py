@@ -7,6 +7,7 @@ from functools import wraps
 from io import BytesIO
 from openpyxl import Workbook, load_workbook
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 from flask_wtf import CSRFProtect
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -1192,19 +1193,170 @@ def tarifas():
     conn.close()
     return render_template("tarifas.html", tarifas=regs)
 
-# ─── Backup ──────────────────────────────────────────────────────
+# ─── Backup y recuperación ─────────────────────────────────────────
+# Cuántos backups se conservan en el volumen antes de borrar los más
+# viejos automáticamente. Ajustable con la variable de entorno
+# BACKUP_RETENCION, sin tocar el código.
+BACKUP_RETENCION = int(os.environ.get("BACKUP_RETENCION", "30"))
+
+
+def _crear_backup_sqlite(destino):
+    """
+    Copia la base de datos usando la API de respaldo de SQLite
+    (Connection.backup()), en vez de copiar el archivo "en crudo" con
+    shutil.copy2().
+
+    Por qué importa: con WAL activado (ver get_db()), los cambios más
+    recientes pueden vivir todavía en el archivo -wal y no en el archivo
+    principal .db. Copiar solo el .db mientras alguien está registrando
+    una entrada/salida puede producir un backup incompleto o, en el peor
+    caso, un archivo corrupto. La API backup() de SQLite en cambio hace
+    una copia consistente página por página, tomando en cuenta el WAL,
+    sin bloquear a los demás usuarios de la app mientras corre.
+    """
+    origen = sqlite3.connect(DB_FILE, timeout=10)
+    try:
+        destino_conn = sqlite3.connect(destino)
+        try:
+            origen.backup(destino_conn)
+        finally:
+            destino_conn.close()
+    finally:
+        origen.close()
+
+
+def _limpiar_backups_antiguos():
+    """
+    Conserva solo los BACKUP_RETENCION backups más recientes en
+    BACKUP_DIR y borra el resto, para que el volumen no crezca sin
+    límite. El nombre del archivo incluye la fecha/hora (AAAAMMDD_HHMMSS),
+    así que ordenar los nombres alfabéticamente al revés ya los deja del
+    más nuevo al más viejo.
+    """
+    archivos = sorted(
+        (f for f in os.listdir(BACKUP_DIR) if f.startswith("backup_") and f.endswith(".db")),
+        reverse=True,
+    )
+    for viejo in archivos[BACKUP_RETENCION:]:
+        try:
+            os.remove(os.path.join(BACKUP_DIR, viejo))
+        except OSError:
+            pass
+
+
 @app.route("/backup")
 @login_required
 @admin_required
 def backup():
-    # CAMBIO: Usamos get_colombia_time() para que el nombre del archivo
-    # refleje la hora real en la que hiciste la copia.
+    # Usamos get_colombia_time() para que el nombre del archivo refleje
+    # la hora real en la que se hizo la copia.
     ahora_co = get_colombia_time()
     nombre = f"backup_{ahora_co.strftime('%Y%m%d_%H%M%S')}.db"
-    
+
     destino = os.path.join(BACKUP_DIR, nombre)
-    shutil.copy2(DB_FILE, destino)
+    _crear_backup_sqlite(destino)
+    _limpiar_backups_antiguos()
     return send_file(destino, as_attachment=True, download_name=nombre)
+
+
+@app.route("/restore", methods=["GET", "POST"])
+@login_required
+@admin_required
+def restore():
+    """
+    Recuperación desde un backup. Pensada para un admin sin acceso a la
+    terminal de Railway: puede elegir un backup que ya esté guardado en
+    el servidor, o subir un archivo .db desde su computador (por ejemplo
+    uno descargado antes con "Copia de Seguridad").
+
+    Es una operación delicada -- reemplaza TODA la base de datos activa
+    -- así que antes de tocar nada:
+      1. Valida que el archivo realmente sea una base de datos SQLite
+         de esta aplicación (no un archivo corrupto o de otro sistema).
+      2. Guarda un backup del estado ACTUAL antes de sobrescribirlo, para
+         poder deshacer la restauración si fue un error.
+      3. Borra los archivos -wal/-shm viejos antes de copiar el nuevo
+         archivo principal -- si no se borran, SQLite intenta "continuar"
+         el WAL anterior sobre una base de datos distinta y puede
+         corromperla.
+    """
+    if request.method == "GET":
+        backups_disponibles = sorted(
+            (f for f in os.listdir(BACKUP_DIR) if f.startswith("backup_") and f.endswith(".db")),
+            reverse=True,
+        )
+        return render_template("restore.html", backups=backups_disponibles)
+
+    archivo_subido = request.files.get("archivo")
+    nombre_existente = request.form.get("backup_existente")
+
+    origen_path = None
+    es_temporal = False
+    if archivo_subido and archivo_subido.filename:
+        origen_path = os.path.join(BACKUP_DIR, "_subida_temporal_restore.db")
+        archivo_subido.save(origen_path)
+        es_temporal = True
+    elif nombre_existente:
+        candidato = os.path.join(BACKUP_DIR, secure_filename(nombre_existente))
+        if os.path.exists(candidato):
+            origen_path = candidato
+
+    if not origen_path:
+        flash("Debes elegir un backup existente o subir un archivo.", "error")
+        return redirect(url_for("restore"))
+
+    # 1. Validar que sea una base de datos SQLite válida de esta app.
+    try:
+        prueba = sqlite3.connect(origen_path)
+        integridad = prueba.execute("PRAGMA integrity_check").fetchone()[0]
+        tablas = {r[0] for r in prueba.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        prueba.close()
+    except sqlite3.DatabaseError:
+        if es_temporal:
+            os.remove(origen_path)
+        flash("El archivo no es una base de datos SQLite válida.", "error")
+        return redirect(url_for("restore"))
+
+    if integridad != "ok" or "parqueadero" not in tablas:
+        if es_temporal:
+            os.remove(origen_path)
+        flash("El archivo de respaldo está corrupto o no corresponde a esta aplicación.", "error")
+        return redirect(url_for("restore"))
+
+    # 2. Backup de seguridad del estado actual, por si hay que deshacer.
+    ahora_co = get_colombia_time()
+    nombre_pre = f"backup_{ahora_co.strftime('%Y%m%d_%H%M%S')}_pre_restore.db"
+    _crear_backup_sqlite(os.path.join(BACKUP_DIR, nombre_pre))
+
+    # 3. Reemplazar el archivo activo, limpiando el WAL viejo primero.
+    for sufijo in ("-wal", "-shm"):
+        try:
+            os.remove(DB_FILE + sufijo)
+        except FileNotFoundError:
+            pass
+    shutil.copy2(origen_path, DB_FILE)
+
+    if es_temporal:
+        os.remove(origen_path)
+
+    # Dejamos rastro en la propia base ya restaurada: quién restauró,
+    # cuándo, y desde qué archivo -- así queda visible en /auditoria.
+    conn = get_db()
+    registrar_auditoria(
+        conn, "restore_backup", "sistema", None,
+        valor_nuevo=os.path.basename(origen_path) if not es_temporal else "archivo subido manualmente",
+        motivo=f"Se guardó copia del estado anterior en {nombre_pre}",
+    )
+    conn.commit()
+    conn.close()
+
+    _limpiar_backups_antiguos()
+
+    flash(
+        f"Base de datos restaurada correctamente. El estado anterior quedó guardado como '{nombre_pre}' por si necesitas deshacer esto.",
+        "success",
+    )
+    return redirect(url_for("inicio"))
 
 # ─── API tiempo real ──────────────────────────────────────────────
 @app.route("/api/valor_estimado")
