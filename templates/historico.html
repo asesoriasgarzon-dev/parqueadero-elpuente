@@ -14,11 +14,19 @@
     cursor: pointer !important;
   }
 
-  .table-wrap table tbody tr:hover td { background: transparent !important; }
+  .table-wrap table tbody tr:hover td {
+    background: transparent !important;
+  }
 
   /* Fila de detalles claros */
-  .table-wrap table tbody tr[id^="det-"] { background-color: #f4f6f7 !important; }
-  .table-wrap table tbody tr[id^="det-"] td { color: #333 !important; padding: 1.2rem; }
+  .table-wrap table tbody tr[id^="det-"] {
+    background-color: #f4f6f7 !important;
+  }
+
+  .table-wrap table tbody tr[id^="det-"] td {
+    color: #333 !important;
+    padding: 1.2rem;
+  }
 
   .badge-anulado {
     background: var(--danger);
@@ -30,16 +38,39 @@
   }
 </style>
 
-<div class="page-title">Histórico <span>de Movimientos</span></div>
+<div class="page-title">
+  Histórico <span>de Movimientos</span>
+</div>
 
-<form method="GET" class="search-bar" style="margin-bottom: 1.5rem;">
-  <input name="placa" class="form-control" placeholder="BUSCAR POR PLACA..." value="{{ placa }}" style="text-transform:uppercase">
-  <button type="submit" class="btn btn-primary">Buscar</button>
-  {% if placa %}<a href="{{ url_for('historico') }}" class="btn btn-secondary">Limpiar</a>{% endif %}
+<form method="GET"
+      class="search-bar"
+      style="margin-bottom: 1.5rem;">
+
+  <input
+    name="placa"
+    class="form-control"
+    placeholder="BUSCAR POR PLACA..."
+    value="{{ placa }}"
+    style="text-transform:uppercase"
+    autocomplete="off">
+
+  <button type="submit" class="btn btn-primary">
+    Buscar
+  </button>
+
+  {% if placa %}
+    <a href="{{ url_for('historico') }}"
+       class="btn btn-secondary">
+      Limpiar
+    </a>
+  {% endif %}
+
 </form>
 
 <div class="table-wrap">
+
   <table>
+
     <thead>
       <tr>
         <th style="width: 40px;">#</th>
@@ -52,85 +83,399 @@
         <th>Acción</th>
       </tr>
     </thead>
+
     <tbody>
+
     {% for r in regs %}
-    <tr onclick="toggleDetalles('det-{{ r.id }}')" class="{% if r.anulado %}fila-anulada{% endif %}">
-      <td style="color: var(--text2); font-size: 0.8rem;">{{ loop.index }}</td>
-      <td>{{ "%05d"|format(r.ticket_num) }}</td>
-      <td><b style="color:var(--accent)">{{ r.placa }}</b></td>
-      <td>{{ r.tipo|capitalize }}</td>
-      <td style="font-size:.82rem">{{ r.hora_salida.split(' ')[1] if r.hora_salida else '—' }}</td>
-      <td>{{ r.metodo_pago or '---' }}</td>
+
+    <!-- ========================================================
+         FILA PRINCIPAL
+         ======================================================== -->
+
+    <tr
+      onclick="toggleDetalles('det-{{ r.id }}')"
+      class="{% if r.anulado %}fila-anulada{% endif %}">
+
+      <td style="color: var(--text2); font-size: 0.8rem;">
+        {{ loop.index }}
+      </td>
+
       <td>
+        {{ "%05d"|format(r.ticket_num) }}
+      </td>
+
+      <td>
+        <b style="color:var(--accent)">
+          {{ r.placa }}
+        </b>
+      </td>
+
+      <td>
+        {{ r.tipo|capitalize }}
+      </td>
+
+      <td style="font-size:.82rem">
+        {{ r.hora_salida.split(' ')[1] if r.hora_salida else '—' }}
+      </td>
+
+      <td>
+        {{ r.metodo_pago or '---' }}
+      </td>
+
+      <td>
+
         {% if r.hora_salida %}
-          <div class="{% if r.anulado %}texto-anulado{% endif %}" style="font-weight:700">
-            ${{ "{:,}".format(r.valor|int) }}
-          </div>
+
           {% if r.anulado %}
-            <b style="color:var(--accent)">Real: ${{ "{:,}".format(r.valor_real|int) }}</b>
+
+            <!-- El valor original fue anulado -->
+            <div
+              class="texto-anulado"
+              style="font-weight:700">
+
+              Cobro anulado
+
+            </div>
+
+            <!-- Valor realmente cobrado -->
+            <b style="color:var(--accent)">
+              Real: ${{ "{:,}".format(r.valor_real|int) }}
+            </b>
+
+          {% else %}
+
+            <div style="font-weight:700">
+              ${{ "{:,}".format(r.valor|int) }}
+            </div>
+
           {% endif %}
+
         {% else %}
-          <span class="badge badge-warn">En patio</span>
+
+          <span class="badge badge-warn">
+            En patio
+          </span>
+
         {% endif %}
+
       </td>
+
       <td>
+
         {% if r.hora_salida and not r.anulado %}
-          <button onclick="event.stopPropagation(); solicitarAnulacion('{{ r.id }}', '{{ r.valor }}')" class="btn btn-danger btn-sm" style="padding: 2px 8px; font-size: 0.7rem;">
+
+          <button
+            type="button"
+            onclick="
+              event.stopPropagation();
+              solicitarAnulacion(
+                '{{ r.id }}',
+                '{{ r.valor }}'
+              );
+            "
+            class="btn btn-danger btn-sm"
+            style="
+              padding: 2px 8px;
+              font-size: 0.7rem;">
+
             Anular
+
           </button>
+
         {% elif r.anulado %}
-          <span class="badge-anulado">ANULADO</span>
+
+          <span class="badge-anulado">
+            ANULADO
+          </span>
+
         {% endif %}
+
       </td>
+
     </tr>
 
-    <tr id="det-{{ r.id }}" style="display:none;">
+
+    <!-- ========================================================
+         DETALLES
+         ======================================================== -->
+
+    <tr
+      id="det-{{ r.id }}"
+      style="display:none;">
+
       <td colspan="8">
-        <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; font-size: 0.9rem;">
+
+        <div style="
+          display:grid;
+          grid-template-columns:1fr 1fr 1fr;
+          gap:1rem;
+          font-size:0.9rem;">
+
+          <!-- TIEMPOS -->
+
           <div>
-            <p><strong>📅 Entrada:</strong><br>{{ r.hora_entrada }}</p>
-            <p><strong>📅 Salida:</strong><br>{{ r.hora_salida or 'N/A' }}</p>
+
+            <p>
+              <strong>📅 Entrada:</strong><br>
+              {{ r.hora_entrada }}
+            </p>
+
+            <p>
+              <strong>📅 Salida:</strong><br>
+              {{ r.hora_salida or 'N/A' }}
+            </p>
+
           </div>
+
+
+          <!-- VEHÍCULO -->
+
           <div>
-            <p><strong>🚗 Marca:</strong> {{ r.marca or '---' }}</p>
-            <p><strong>🎫 Ticket:</strong> #{{ r.ticket_num }}</p>
+
+            <p>
+              <strong>🚗 Marca:</strong>
+              {{ r.marca or '---' }}
+            </p>
+
+            <p>
+              <strong>🎫 Ticket:</strong>
+              #{{ r.ticket_num }}
+            </p>
+
           </div>
+
+
+          <!-- ESTADO / ANULACIÓN -->
+
           <div>
+
             {% if r.anulado %}
-              <p style="color:var(--danger)"><strong>🚫 Motivo Anulación:</strong><br>{{ r.motivo_anulacion }}</p>
-              <p><strong>💵 Valor Original:</strong> ${{ "{:,}".format(r.valor|int) }}</p>
+
+              <p style="color:var(--danger)">
+
+                <strong>
+                  🚫 Motivo Anulación:
+                </strong><br>
+
+                {{ r.motivo_anulacion or 'No especificado' }}
+
+              </p>
+
+
+              <p>
+
+                <strong>
+                  💵 Valor realmente cobrado:
+                </strong><br>
+
+                ${{ "{:,}".format(r.valor_real|int) }}
+
+              </p>
+
+
+              <p>
+
+                <strong>
+                  📌 Estado:
+                </strong>
+
+                <span class="badge-anulado">
+                  ANULADO
+                </span>
+
+              </p>
+
             {% else %}
-              <p style="color:#666; font-style:italic">Haga clic en 'Anular' si hubo un error en el cobro de este ticket.</p>
+
+              <p style="
+                color:#666;
+                font-style:italic">
+
+                Haga clic en 'Anular' si hubo un
+                error en el cobro de este ticket.
+
+              </p>
+
             {% endif %}
+
           </div>
+
         </div>
+
       </td>
+
     </tr>
+
+
     {% else %}
-    <tr><td colspan="8" style="text-align:center;color:var(--text2);padding:2rem">Sin registros</td></tr>
+
+    <tr>
+
+      <td
+        colspan="8"
+        style="
+          text-align:center;
+          color:var(--text2);
+          padding:2rem">
+
+        Sin registros
+
+      </td>
+
+    </tr>
+
     {% endfor %}
+
     </tbody>
+
   </table>
+
 </div>
 
+
 <script>
+
+/* ============================================================
+   MOSTRAR / OCULTAR DETALLES
+   ============================================================ */
+
 function toggleDetalles(id) {
+
   const el = document.getElementById(id);
-  el.style.display = (el.style.display === 'none') ? 'table-row' : 'none';
+
+  if (!el) {
+    return;
+  }
+
+  el.style.display =
+    (el.style.display === 'none')
+      ? 'table-row'
+      : 'none';
 }
 
+
+/* ============================================================
+   SOLICITAR ANULACIÓN
+   ============================================================ */
+
 function solicitarAnulacion(id, valorErroneo) {
-    var motivo = prompt("¿Motivo de la anulación del cobro de $" + valorErroneo + "?");
-    if (motivo) {
-        var valorReal = prompt("Ingrese el VALOR REAL que cobró (Solo números):");
-        if (valorReal !== null && !isNaN(valorReal) && valorReal !== "") {
-            // USAMOS CONCATENACIÓN TRADICIONAL PARA EVITAR ERRORES DE RUTA
-            var url = "/anular_pago/" + id + "?motivo=" + encodeURIComponent(motivo) + "&real=" + valorReal;
-            window.location.href = url;
-        } else {
-            alert("Debe ingresar un valor numérico válido.");
-        }
-    }
+
+  const valorFormateado =
+    Number(valorErroneo || 0)
+      .toLocaleString('es-CO');
+
+
+  /* ----------------------------------------------------------
+     1. MOTIVO
+     ---------------------------------------------------------- */
+
+  const motivo = prompt(
+    "¿Motivo de la anulación del cobro de $" +
+    valorFormateado +
+    "?"
+  );
+
+
+  if (motivo === null) {
+    return;
+  }
+
+
+  if (!motivo.trim()) {
+
+    alert(
+      "Debe indicar el motivo de la anulación."
+    );
+
+    return;
+  }
+
+
+  /* ----------------------------------------------------------
+     2. VALOR REAL
+     ---------------------------------------------------------- */
+
+  const valorReal = prompt(
+    "Ingrese el VALOR REAL que cobró.\n\n" +
+    "Solo números.\n" +
+    "Ejemplo: 10000"
+  );
+
+
+  if (valorReal === null) {
+    return;
+  }
+
+
+  const valorLimpio =
+    valorReal
+      .replace(/\$/g, '')
+      .replace(/\./g, '')
+      .replace(/,/g, '')
+      .trim();
+
+
+  if (
+    valorLimpio === '' ||
+    isNaN(valorLimpio) ||
+    Number(valorLimpio) < 0
+  ) {
+
+    alert(
+      "Debe ingresar un valor numérico válido."
+    );
+
+    return;
+  }
+
+
+  /* ----------------------------------------------------------
+     3. CONFIRMACIÓN
+     ---------------------------------------------------------- */
+
+  const confirmar = confirm(
+
+    "CONFIRMAR ANULACIÓN\n\n" +
+
+    "Cobro registrado: $" +
+    valorFormateado +
+    "\n\n" +
+
+    "Valor realmente cobrado: $" +
+    Number(valorLimpio).toLocaleString('es-CO') +
+    "\n\n" +
+
+    "Motivo: " +
+    motivo.trim() +
+    "\n\n" +
+
+    "¿Desea continuar?"
+
+  );
+
+
+  if (!confirmar) {
+    return;
+  }
+
+
+  /* ----------------------------------------------------------
+     4. ENVIAR A LA RUTA
+     ---------------------------------------------------------- */
+
+  const url =
+    "/anular_pago/" +
+    encodeURIComponent(id) +
+    "?motivo=" +
+    encodeURIComponent(motivo.trim()) +
+    "&real=" +
+    encodeURIComponent(valorLimpio);
+
+
+  window.location.href = url;
+
 }
+
 </script>
+
 {% endblock %}
