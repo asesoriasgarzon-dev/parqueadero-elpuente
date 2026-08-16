@@ -20,6 +20,7 @@ PRUEBAS=(
   "test_impresion.py"
   "test_backup.py"
   "test_regresion.py"
+  "test_caja_pdf_crm.py"
 )
 
 fallo_general=0
