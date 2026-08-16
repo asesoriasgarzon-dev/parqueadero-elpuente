@@ -36,6 +36,7 @@
                 <a href="{{ url_for('tarifas') }}" {% if request.endpoint == 'tarifas' %}class="active"{% endif %}>Tarifas</a>
                 <a href="{{ url_for('auditoria') }}" {% if request.endpoint == 'auditoria' %}class="active"{% endif %}>Auditoría</a>
                 <a href="{{ url_for('backup') }}" title="Copia de Seguridad" style="font-size: 1.2rem;">💾</a>
+                <a href="{{ url_for('restore') }}" title="Restaurar Backup" style="font-size: 1.2rem;">🔄</a>
             {% endif %}
         </div>
 

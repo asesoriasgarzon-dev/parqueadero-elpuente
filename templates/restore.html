@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Restaurar Backup – El Puente{% endblock %}
+
+{% block content %}
+<div class="page-title">Restaurar <span>Copia de Seguridad</span></div>
+
+<div class="card" style="max-width:750px;margin-bottom:1.5rem;border-left:4px solid #ff4757">
+  <div style="font-weight:700;margin-bottom:0.6rem;color:#ff4757">⚠️ Esto reemplaza toda la información actual</div>
+  <p style="color:var(--text2); font-size:0.9rem; margin:0;">
+    Antes de tocar nada, se guarda automáticamente una copia del estado actual (por si la restauración
+    fue un error y hay que deshacerla). Aun así, úsalo solo si de verdad necesitas volver a un momento
+    anterior — por ejemplo, después de un problema grave. Idealmente hazlo cuando nadie más esté
+    usando la app al mismo tiempo (sin gente registrando entradas o salidas en ese momento).
+  </p>
+</div>
+
+<div class="card" style="max-width:750px;margin-bottom:1.5rem">
+  <div style="font-weight:700;margin-bottom:1rem;color:var(--text2)">Opción 1: elegir un backup ya guardado en el servidor</div>
+
+  {% if backups %}
+  <form method="POST" onsubmit="return confirm('¿Seguro que quieres restaurar este backup? Se reemplazará toda la información actual.');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-group">
+      <label>Backup</label>
+      <select name="backup_existente" class="form-control" required>
+        <option value="">-- Selecciona un backup --</option>
+        {% for b in backups %}
+          <option value="{{ b }}">{{ b }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-danger">Restaurar este backup</button>
+  </form>
+  {% else %}
+  <p style="color:var(--text2); font-size:0.9rem;">
+    Todavía no hay backups guardados en el servidor. Descarga uno primero desde el botón 💾 del menú,
+    o sube un archivo directamente abajo.
+  </p>
+  {% endif %}
+</div>
+
+<div class="card" style="max-width:750px;margin-bottom:1.5rem;border-left:4px solid var(--accent)">
+  <div style="font-weight:700;margin-bottom:1rem;color:var(--text2)">Opción 2: subir un archivo .db desde tu computador</div>
+  <p style="color:var(--text2); font-size:0.9rem; margin-bottom:1rem;">
+    Útil si el backup lo tienes descargado en tu computador (por ejemplo, uno que bajaste antes con el botón 💾).
+  </p>
+  <form method="POST" enctype="multipart/form-data" onsubmit="return confirm('¿Seguro que quieres restaurar este archivo? Se reemplazará toda la información actual.');" style="display:flex; align-items:center; gap:.6rem; flex-wrap:wrap;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="file" name="archivo" accept=".db" class="form-control" required style="max-width:280px;">
+    <button type="submit" class="btn btn-danger">Restaurar este archivo</button>
+  </form>
+</div>
+{% endblock %}
