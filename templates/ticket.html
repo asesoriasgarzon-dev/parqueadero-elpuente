@@ -5,20 +5,20 @@
 <!-- ============================================================
      TICKET COMPACTO PARA IMPRESIÓN POR NAVEGADOR
      ============================================================ -->
+<!--
+  Formato compacto (Fase de tickets): inspirado en el tiquete del
+  parqueadero del Aeropuerto Alfonso Bonilla Aragón que Wilmer compartió
+  como referencia -- más corto que el anterior, sin código de barras
+  (no hay lector todavía), y con el horario del negocio en el
+  encabezado. El bloque de seguros queda en una sola línea en vez de
+  cuatro. Esta es la versión que también reproduce construirBytesTicket()
+  más abajo para la impresión térmica real (RawBT); si cambias una,
+  cambia la otra para que no queden desincronizadas.
+-->
 <div class="print-compact">
-
-  <div style="text-align:center; font-size:10px; letter-spacing:2px; margin-bottom:4px;">
-    SEGURO · CONFIABLE · COMODO
-  </div>
-
-  <div class="pc-linea"></div>
 
   <div style="text-align:center; font-weight:bold; font-size:13px;">
     PARQUEADERO EL PUENTE
-  </div>
-
-  <div style="text-align:center; font-size:10px;">
-    Nit: 1.151.952.649-3
   </div>
 
   <div style="text-align:center; font-size:10px;">
@@ -31,14 +31,9 @@
 
   <div class="pc-linea"></div>
 
-  <div>
-    Ticket: {{ "%05d"|format(reg.ticket_num) }}
-    &nbsp;&nbsp;
-    {{ tipo.upper() }}
-  </div>
-
-  <div>
-    Entrada: {{ reg.hora_entrada }}
+  <div class="pc-fila">
+    <span>Ticket: {{ "%05d"|format(reg.ticket_num) }}</span>
+    <span>{{ tipo.upper() }}</span>
   </div>
 
   <div style="
@@ -50,16 +45,21 @@
     {{ reg.placa }}
   </div>
 
-  <div>
-    Tipo: {{ reg.tipo|capitalize }}
-    &nbsp;&nbsp;
-    Marca: {{ reg.marca or '---' }}
+  <div class="pc-linea"></div>
+
+  <div class="pc-fila">
+    <span>Tipo: {{ reg.tipo|capitalize }}</span>
+    <span>Marca: {{ reg.marca or '---' }}</span>
   </div>
 
   {% if tipo == 'salida' %}
 
-    <div>
-      Salida: {{ reg.hora_salida }}
+    <div class="pc-fila">
+      <span>Entrada: {{ reg.hora_entrada }}</span>
+    </div>
+
+    <div class="pc-fila">
+      <span>Salida: {{ reg.hora_salida }}</span>
     </div>
 
     <div>
@@ -81,18 +81,24 @@
 
   {% else %}
 
+    <div>
+      Fecha: {{ reg.hora_entrada.split(' ')[0] }}
+      &nbsp;&nbsp;
+      Hora: {{ reg.hora_entrada.split(' ')[1][:5] }}
+    </div>
+
     <div class="pc-linea"></div>
 
     {% if reg.tipo == 'carro' %}
 
-      <div>$4.000 primera hora</div>
-      <div>$3.500 fracción adicional</div>
-      <div>Día completo: $14.000</div>
+      <div class="pc-fila"><span>Primera hora:</span><span>$4.000</span></div>
+      <div class="pc-fila"><span>Fracción adicional:</span><span>$3.500</span></div>
+      <div class="pc-fila"><span>Día completo:</span><span>$14.000</span></div>
 
     {% else %}
 
-      <div>$2.500 hora o fracción</div>
-      <div>Día completo: $7.000</div>
+      <div class="pc-fila"><span>Hora o fracción:</span><span>$2.500</span></div>
+      <div class="pc-fila"><span>Día completo:</span><span>$7.000</span></div>
 
     {% endif %}
 
@@ -100,34 +106,14 @@
 
   <div class="pc-linea"></div>
 
-  <div>
-    Atendido: {{ reg.cajero or 'admin' }}
-  </div>
-
   {% if tipo == 'entrada' %}
     <div>
-      Conserve este ticket para su salida
+      Conserve este tiquete para su salida.
     </div>
   {% endif %}
 
-  <div class="pc-linea"></div>
-
   <div>
-    Seguros Mundial - Póliza {{ poliza|default('') }}
-  </div>
-
-  <div>
-    Cert: {{ certificado|default('') }}
-  </div>
-
-  <div>
-    Vig: {{ vigencia|default('') }}
-  </div>
-
-  <div class="pc-linea"></div>
-
-  <div style="text-align:center; font-weight:bold;">
-    ¡GRACIAS POR SU VISITA!
+    Póliza Seguros Mundial {{ poliza|default('') }}.
   </div>
 
 </div>
@@ -651,6 +637,12 @@
   margin:4px 0;
 }
 
+.pc-fila {
+  display:flex;
+  justify-content:space-between;
+  gap:6px;
+}
+
 
 /* ============================================================
    IMPRESION
@@ -774,6 +766,18 @@ function textoABytes(str) {
 
 /* ============================================================
    CONSTRUIR TICKET ESC/POS
+   ============================================================
+
+   Formato compacto, inspirado en el tiquete del parqueadero del
+   Aeropuerto Alfonso Bonilla Aragón que Wilmer compartió como
+   referencia: menos líneas que la versión anterior (sin el "Atendido",
+   sin desglosar Póliza/Certificado/Vigencia cada uno en su línea, sin
+   el mensaje final), pero conservando el horario del negocio en el
+   encabezado, tal como lo pidió.
+
+   Esta función debe reflejar exactamente lo mismo que el bloque
+   .print-compact de arriba (el respaldo para imprimir desde el
+   navegador) -- si cambias una versión, cambia la otra.
    ============================================================ */
 
 function construirBytesTicket(d) {
@@ -831,6 +835,26 @@ function construirBytesTicket(d) {
 
   };
 
+  // Escribe dos datos en la misma línea (uno a la izquierda, otro a la
+  // derecha), como en el ticket de referencia del aeropuerto. Si los
+  // dos textos juntos no caben en el ancho del papel, en vez de cortar
+  // información cada uno queda en su propia línea.
+  const dosColumnas = (izq, der, ancho = 32) => {
+
+    const espacio = ancho - izq.length - der.length;
+
+    if (espacio >= 1) {
+      txt(izq + " ".repeat(espacio) + der);
+      nl();
+    } else {
+      txt(izq);
+      nl();
+      txt(der);
+      nl();
+    }
+
+  };
+
 
   /* ----------------------------------------------------------
      INICIALIZAR
@@ -851,13 +875,7 @@ function construirBytesTicket(d) {
 
   boldOff();
 
-  txt("Nit: 1.151.952.649-3");
-  nl();
-
-  txt("Cra 4 # 5-26");
-  nl();
-
-  txt("Tel: 3152775288");
+  txt("Cra 4 # 5-26 - Tel: 3152775288");
   nl();
 
   txt("Horario: 7:00am - 6:30pm");
@@ -872,14 +890,10 @@ function construirBytesTicket(d) {
 
   alignL();
 
-  txt(
-    "Ticket: " +
-    d.ticketNum +
-    "   " +
+  dosColumnas(
+    "Ticket: " + d.ticketNum,
     d.tipo.toUpperCase()
   );
-
-  nl();
 
 
   /* ----------------------------------------------------------
@@ -906,47 +920,24 @@ function construirBytesTicket(d) {
 
   alignL();
 
-  txt(
-    "Tipo: " +
-    d.vehiculoTipo
+  dosColumnas(
+    "Tipo: " + d.vehiculoTipo,
+    "Marca: " + d.marca
   );
-
-  nl();
-
-  txt(
-    "Marca: " +
-    d.marca
-  );
-
-  nl();
 
 
   /* ----------------------------------------------------------
      ENTRADA / SALIDA
      ---------------------------------------------------------- */
 
-  txt(
-    "Entrada: " +
-    d.horaEntrada
-  );
-
-  nl();
-
-
   if (d.tipo === "salida") {
 
-    txt(
-      "Salida:  " +
-      d.horaSalida
+    dosColumnas(
+      "Entrada: " + d.horaEntrada,
+      "Salida: " + d.horaSalida
     );
 
-    nl();
-
-    txt(
-      "Tiempo:  " +
-      d.tiempoStr
-    );
-
+    txt("Tiempo: " + d.tiempoStr);
     nl();
 
     linea();
@@ -977,10 +968,21 @@ function construirBytesTicket(d) {
   } else {
 
     /* --------------------------------------------------------
-       TARIFAS ENTRADA
+       FECHA / HORA DE ENTRADA
        -------------------------------------------------------- */
 
+    const partesEntrada = d.horaEntrada.split(" ");
+    const fechaEntrada = partesEntrada[0] || "";
+    const horaEntradaCorta = (partesEntrada[1] || "").slice(0, 5);
+
+    txt("Fecha: " + fechaEntrada + "   Hora: " + horaEntradaCorta);
+    nl();
+
     linea();
+
+    /* --------------------------------------------------------
+       TARIFAS ENTRADA
+       -------------------------------------------------------- */
 
     alignL();
 
@@ -988,22 +990,14 @@ function construirBytesTicket(d) {
       d.vehiculoTipo.toLowerCase() === "carro"
     ) {
 
-      txt("$4.000 primera hora");
-      nl();
-
-      txt("$3.500 fraccion adicional");
-      nl();
-
-      txt("Dia completo: $14.000");
-      nl();
+      dosColumnas("Primera hora:", "$4.000");
+      dosColumnas("Fraccion adicional:", "$3.500");
+      dosColumnas("Dia completo:", "$14.000");
 
     } else {
 
-      txt("$2.500 hora o fraccion");
-      nl();
-
-      txt("Dia completo: $7.000");
-      nl();
+      dosColumnas("Hora o fraccion:", "$2.500");
+      dosColumnas("Dia completo:", "$7.000");
 
     }
 
@@ -1018,77 +1012,15 @@ function construirBytesTicket(d) {
 
   alignL();
 
-  txt(
-    "Atendido: " +
-    d.cajero
-  );
-
-  nl();
-
-
   if (d.tipo === "entrada") {
 
-    txt(
-      "Conserve este ticket para su salida"
-    );
-
+    txt("Conserve este tiquete para su salida.");
     nl();
 
   }
 
-
-  linea();
-
-
-  /* ----------------------------------------------------------
-     SEGUROS
-     ---------------------------------------------------------- */
-
-  txt(
-    "Seguros Mundial"
-  );
-
+  txt("Poliza Seguros Mundial " + d.poliza + ".");
   nl();
-
-  txt(
-    "Poliza: " +
-    d.poliza
-  );
-
-  nl();
-
-  txt(
-    "Certificado: " +
-    d.certificado
-  );
-
-  nl();
-
-  txt(
-    "Vigencia: " +
-    d.vigencia
-  );
-
-  nl();
-
-  linea();
-
-
-  /* ----------------------------------------------------------
-     MENSAJE FINAL
-     ---------------------------------------------------------- */
-
-  alignC();
-
-  boldOn();
-
-  txt(
-    "GRACIAS POR SU VISITA!"
-  );
-
-  nl();
-
-  boldOff();
 
   nl(3);
 
