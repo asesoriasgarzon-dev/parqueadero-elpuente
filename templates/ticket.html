@@ -2,391 +2,1314 @@
 {% block title %}Ticket – El Puente{% endblock %}
 {% block content %}
 
-<!-- ─── Versión COMPACTA solo para impresión (USB/navegador) ────── -->
-<!-- En pantalla no se ve (display:none). Al imprimir, esta reemplaza
-     a la versión bonita de arriba, que se oculta con @media print. -->
+<!-- ============================================================
+     TICKET COMPACTO PARA IMPRESIÓN POR NAVEGADOR
+     ============================================================ -->
 <div class="print-compact">
-  <div style="text-align:center; font-size:10px; letter-spacing:2px; margin-bottom:4px;">
-     SEGURO · CONFIABLE · COMODO   
-  </div>
-  <div class="pc-linea" style="border-top-style:dashed !important; border-top-width:2px !important;"></div>
 
-  <div style="text-align:center; font-weight:bold; font-size:13px;">PARQUEADERO EL PUENTE</div>
-  <div style="text-align:center; font-size:10px;">Cra 4 # 5-26 - Tel: 3152775288</div>
+  <div style="text-align:center; font-size:10px; letter-spacing:2px; margin-bottom:4px;">
+    SEGURO · CONFIABLE · COMODO
+  </div>
+
   <div class="pc-linea"></div>
 
-  <div>Ticket: {{ "%05d"|format(reg.ticket_num) }}&nbsp;&nbsp;&nbsp;{{ tipo.upper() }}</div>
-  <div>Fecha: {{ reg.hora_entrada }}</div>
+  <div style="text-align:center; font-weight:bold; font-size:13px;">
+    PARQUEADERO EL PUENTE
+  </div>
 
-  <div style="text-align:center; font-weight:900; font-size:22px; letter-spacing:2px; margin:5px 0;">{{ reg.placa }}</div>
+  <div style="text-align:center; font-size:10px;">
+    Nit: 1.151.952.649-3
+  </div>
 
-  <div>Tipo: {{ reg.tipo|capitalize }}&nbsp;&nbsp;&nbsp;Marca: {{ reg.marca or '---' }}</div>
+  <div style="text-align:center; font-size:10px;">
+    Cra 4 # 5-26 - Tel: 3152775288
+  </div>
+
+  <div style="text-align:center; font-size:10px;">
+    Horario: 7:00am - 6:30pm
+  </div>
+
+  <div class="pc-linea"></div>
+
+  <div>
+    Ticket: {{ "%05d"|format(reg.ticket_num) }}
+    &nbsp;&nbsp;
+    {{ tipo.upper() }}
+  </div>
+
+  <div>
+    Entrada: {{ reg.hora_entrada }}
+  </div>
+
+  <div style="
+      text-align:center;
+      font-weight:900;
+      font-size:22px;
+      letter-spacing:2px;
+      margin:5px 0;">
+    {{ reg.placa }}
+  </div>
+
+  <div>
+    Tipo: {{ reg.tipo|capitalize }}
+    &nbsp;&nbsp;
+    Marca: {{ reg.marca or '---' }}
+  </div>
 
   {% if tipo == 'salida' %}
-    <div>Entrada: {{ reg.hora_entrada }}</div>
-    <div>Salida:&nbsp;&nbsp;{{ reg.hora_salida }}</div>
-    <div>Tiempo:&nbsp;&nbsp;{{ tiempo_str }}</div>
+
+    <div>
+      Salida: {{ reg.hora_salida }}
+    </div>
+
+    <div>
+      Tiempo: {{ tiempo_str }}
+    </div>
+
     <div class="pc-linea"></div>
-    <div style="text-align:center; font-weight:bold;">TOTAL A PAGAR</div>
-    <div style="text-align:center; font-weight:bold; font-size:18px;">
+
+    <div style="text-align:center; font-weight:bold;">
+      TOTAL A PAGAR
+    </div>
+
+    <div style="
+        text-align:center;
+        font-weight:bold;
+        font-size:20px;">
       ${{ "{:,.0f}".format(reg.valor|int).replace(',', '.') }}
     </div>
+
   {% else %}
+
     <div class="pc-linea"></div>
+
     {% if reg.tipo == 'carro' %}
+
       <div>$4.000 primera hora</div>
       <div>$3.500 fracción adicional</div>
-      <div>Día completo: $13.000</div>
+      <div>Día completo: $14.000</div>
+
     {% else %}
-      <div>$2.000 hora o fracción</div>
+
+      <div>$2.500 hora o fracción</div>
       <div>Día completo: $7.000</div>
+
     {% endif %}
+
   {% endif %}
 
   <div class="pc-linea"></div>
-  <div>Atendido: {{ reg.cajero or 'admin' }}</div>
-  <div>Conserve este ticket para su salida</div>
+
+  <div>
+    Atendido: {{ reg.cajero or 'admin' }}
+  </div>
+
+  {% if tipo == 'entrada' %}
+    <div>
+      Conserve este ticket para su salida
+    </div>
+  {% endif %}
+
   <div class="pc-linea"></div>
-  <div>Seguros Mundial - Póliza {{ poliza|default('') }}</div>
-  <div>Cert: {{ certificado|default('') }}&nbsp;&nbsp;Vig: {{ vigencia|default('') }}</div>
+
+  <div>
+    Seguros Mundial - Póliza {{ poliza|default('') }}
+  </div>
+
+  <div>
+    Cert: {{ certificado|default('') }}
+  </div>
+
+  <div>
+    Vig: {{ vigencia|default('') }}
+  </div>
+
   <div class="pc-linea"></div>
-  <div style="text-align:center; font-weight:bold;">¡GRACIAS POR SU VISITA!</div>
+
+  <div style="text-align:center; font-weight:bold;">
+    ¡GRACIAS POR SU VISITA!
+  </div>
+
 </div>
 
+
+<!-- ============================================================
+     TICKET VISUAL
+     ============================================================ -->
 <div class="ticket-container">
+
   <div class="ticket-wrap" id="ticketPrint">
-    
-    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 5px;">
-      <img src="{{ url_for('static', filename='img/Logo_Par.png') }}" style="width: 180px; height: auto; display:block; margin: 0 auto;">
+
+    <!-- LOGO -->
+    <div style="
+        display:flex;
+        justify-content:center;
+        align-items:center;
+        width:100%;
+        margin-bottom:5px;">
+
+      <img
+        src="{{ url_for('static', filename='img/Logo_Par.png') }}"
+        style="
+          width:180px;
+          height:auto;
+          display:block;
+          margin:0 auto;">
     </div>
 
-    <hr style="border: 0; border-top: 2px dashed #000; width: 100%; margin: 5px 0;">
 
-    <div style="text-align: center; width: 100%;">
-      <h2 style="margin: 0; font-size: 1.4rem; font-weight: 900; font-family: 'Arial Black', sans-serif; letter-spacing: -1px;">PARQUEADERO EL PUENTE</h2>
-      <div style="font-size: 0.75rem; line-height: 1.2; margin-top: 2px; font-family: 'Courier New', monospace;">
+    <hr style="
+        border:0;
+        border-top:2px dashed #000;
+        width:100%;
+        margin:5px 0;">
+
+
+    <!-- ENCABEZADO -->
+    <div style="
+        text-align:center;
+        width:100%;">
+
+      <h2 style="
+          margin:0;
+          font-size:1.4rem;
+          font-weight:900;
+          font-family:'Arial Black',Arial,sans-serif;
+          letter-spacing:-1px;">
+
+        PARQUEADERO EL PUENTE
+
+      </h2>
+
+      <div style="
+          font-size:0.75rem;
+          line-height:1.3;
+          margin-top:3px;
+          font-family:'Courier New',monospace;">
+
         Nit: 1.151.952.649-3 · No Resp. de IVA<br>
         Cra 4 # 5-26 · Tel: 3152775288<br>
-        Horario: 7:00am - 7:00pm
+        Horario: 7:00am - 6:30pm
+
       </div>
+
     </div>
 
-    <div style="text-align:center; font-weight:bold; font-size: 1.1rem; border: 2px solid #000; background: #000; color: #fff; padding: 5px; margin: 12px 0; width: 100%; box-sizing: border-box; letter-spacing: 2px; font-family: 'Courier New', monospace;">
+
+    <!-- TIPO DE TICKET -->
+    <div style="
+        text-align:center;
+        font-weight:bold;
+        font-size:1.1rem;
+        border:2px solid #000;
+        background:#000;
+        color:#fff;
+        padding:5px;
+        margin:12px 0;
+        width:100%;
+        box-sizing:border-box;
+        letter-spacing:2px;
+        font-family:'Courier New',monospace;">
+
       &#9664; TICKET DE {{ tipo.upper() }} &#9654;
+
     </div>
 
-    <div style="border: 2px solid #000; width: 100%; padding: 5px; text-align: center; margin-bottom: 8px; font-weight: bold; font-size: 1.3rem; box-sizing: border-box; font-family: 'Courier New', monospace;">
+
+    <!-- NUMERO -->
+    <div style="
+        border:2px solid #000;
+        width:100%;
+        padding:5px;
+        text-align:center;
+        margin-bottom:8px;
+        font-weight:bold;
+        font-size:1.3rem;
+        box-sizing:border-box;
+        font-family:'Courier New',monospace;">
+
       N° {{ "%05d"|format(reg.ticket_num) }}
+
     </div>
-    
-    <div style="border: 2px solid #000; margin-bottom: 12px; padding: 10px; text-align: center; width: 100%; box-sizing: border-box;">
-      <span style="font-size: 3.5rem; font-weight: 900; letter-spacing: 5px; font-family: 'Courier New', Courier, monospace;">
+
+
+    <!-- PLACA -->
+    <div style="
+        border:2px solid #000;
+        margin-bottom:12px;
+        padding:10px;
+        text-align:center;
+        width:100%;
+        box-sizing:border-box;">
+
+      <span style="
+          font-size:3.5rem;
+          font-weight:900;
+          letter-spacing:5px;
+          font-family:'Courier New',Courier,monospace;">
+
         {{ reg.placa }}
+
       </span>
+
     </div>
 
-    <div style="width: 100%; font-size: 1rem; font-family: 'Courier New', Courier, monospace;">
-      <div style="display: flex; justify-content: space-between; border-bottom: 1px dotted #000; padding: 4px 0;">
-        <span>Tipo:</span><span style="font-weight: bold;">{{ reg.tipo|capitalize }}</span>
-      </div>
-      <div style="display: flex; justify-content: space-between; border-bottom: 1px dotted #000; padding: 4px 0;">
-        <span>Marca:</span><span style="font-weight: bold;">{{ reg.marca or '---' }}</span>
+
+    <!-- DATOS DEL VEHICULO -->
+    <div style="
+        width:100%;
+        font-size:1rem;
+        font-family:'Courier New',Courier,monospace;">
+
+      <div style="
+          display:flex;
+          justify-content:space-between;
+          border-bottom:1px dotted #000;
+          padding:4px 0;">
+
+        <span>Tipo:</span>
+
+        <span style="font-weight:bold;">
+          {{ reg.tipo|capitalize }}
+        </span>
+
       </div>
 
-      <div style="margin: 10px 0;">
-        <div style="display: flex; justify-content: space-between; padding: 2px 0;">
-          <span>Entrada:</span><span style="font-weight: bold;">{{ reg.hora_entrada }}</span>
+
+      <div style="
+          display:flex;
+          justify-content:space-between;
+          border-bottom:1px dotted #000;
+          padding:4px 0;">
+
+        <span>Marca:</span>
+
+        <span style="font-weight:bold;">
+          {{ reg.marca or '---' }}
+        </span>
+
+      </div>
+
+
+      <!-- HORARIOS -->
+      <div style="margin:10px 0;">
+
+        <div style="
+            display:flex;
+            justify-content:space-between;
+            padding:2px 0;">
+
+          <span>Entrada:</span>
+
+          <span style="font-weight:bold;">
+            {{ reg.hora_entrada }}
+          </span>
+
         </div>
+
+
         {% if tipo == 'salida' %}
-        <div style="display: flex; justify-content: space-between; padding: 2px 0;">
-          <span>Salida:</span><span style="font-weight: bold;">{{ reg.hora_salida }}</span>
+
+        <div style="
+            display:flex;
+            justify-content:space-between;
+            padding:2px 0;">
+
+          <span>Salida:</span>
+
+          <span style="font-weight:bold;">
+            {{ reg.hora_salida }}
+          </span>
+
         </div>
-        <div style="display: flex; justify-content: space-between; padding: 2px 0;">
-          <span>Tiempo total:</span><span style="font-weight: bold;">{{ tiempo_str }}</span>
+
+
+        <div style="
+            display:flex;
+            justify-content:space-between;
+            padding:2px 0;">
+
+          <span>Tiempo total:</span>
+
+          <span style="font-weight:bold;">
+            {{ tiempo_str }}
+          </span>
+
         </div>
+
         {% endif %}
+
       </div>
 
-      <div style="border: 2px solid #000; margin: 15px 0; padding: 10px; text-align: center; width: 100%; box-sizing: border-box;">
+
+      <!-- TARIFAS / TOTAL -->
+      <div style="
+          border:2px solid #000;
+          margin:15px 0;
+          padding:10px;
+          text-align:center;
+          width:100%;
+          box-sizing:border-box;">
+
         {% if tipo == 'entrada' %}
-          <div style="font-family: 'Courier New', monospace;">
+
+          <div style="
+              font-family:'Courier New',monospace;">
+
             {% if reg.tipo == 'carro' %}
-              <div style="font-size: 1.1rem; font-weight: bold;">$4.000 Primera Hora</div>
-              <div style="font-size: 0.9rem; margin-top: 4px;">$3.500 Fracción Adicional</div>
-              <div style="font-size: 0.85rem; margin-top: 5px; border-top: 1px dashed #000; padding-top: 5px;">
-                Día completo: <b>$13.000</b>
+
+              <div style="
+                  font-size:1.1rem;
+                  font-weight:bold;">
+
+                $4.000 Primera Hora
+
               </div>
+
+              <div style="
+                  font-size:0.9rem;
+                  margin-top:4px;">
+
+                $3.500 Fracción Adicional
+
+              </div>
+
+              <div style="
+                  font-size:0.85rem;
+                  margin-top:5px;
+                  border-top:1px dashed #000;
+                  padding-top:5px;">
+
+                Día completo:
+                <b>$14.000</b>
+
+              </div>
+
             {% else %}
-              <div style="font-size: 1.1rem; font-weight: bold;">$2.500 Hora o Fracción</div>
-              <div style="font-size: 0.9rem; margin-top: 4px;">Día completo: <b>$7.000</b></div>
+
+              <div style="
+                  font-size:1.1rem;
+                  font-weight:bold;">
+
+                $2.500 Hora o Fracción
+
+              </div>
+
+              <div style="
+                  font-size:0.9rem;
+                  margin-top:4px;">
+
+                Día completo:
+                <b>$7.000</b>
+
+              </div>
+
             {% endif %}
+
           </div>
+
         {% else %}
-          <div style="font-size: 0.9rem; text-transform: uppercase; font-weight: bold; letter-spacing: 1px;">TOTAL A PAGAR</div>
-          <div style="font-size: 2.5rem; font-weight: 900; margin-top: 5px;">
-            ${{ "{:,.0f}".format(reg.valor|int).replace(',', '.') }}
+
+          <div style="
+              font-size:0.9rem;
+              text-transform:uppercase;
+              font-weight:bold;
+              letter-spacing:1px;">
+
+            TOTAL A PAGAR
+
           </div>
+
+          <div style="
+              font-size:2.5rem;
+              font-weight:900;
+              margin-top:5px;">
+
+            ${{ "{:,.0f}".format(reg.valor|int).replace(',', '.') }}
+
+          </div>
+
         {% endif %}
+
       </div>
+
     </div>
 
-    <div style="text-align: center; font-size: 0.75rem; width: 100%; font-family: 'Courier New', monospace;">
-      <div style="margin-bottom: 8px;">Atendido por: {{ reg.cajero or 'admin' }}</div>
-      
-      <hr style="border: 0; border-top: 1px dashed #000; margin: 10px 0;">
-      
-      <div style="text-align: justify; line-height: 1.3; font-size: 0.75rem;">
-        <b style="display: block; text-align: center; margin-bottom: 5px; font-size: 0.85rem;">— REGLAMENTO —</b>
+
+    <!-- PIE -->
+    <div style="
+        text-align:center;
+        font-size:0.75rem;
+        width:100%;
+        font-family:'Courier New',monospace;">
+
+      <div style="margin-bottom:8px;">
+        Atendido por: {{ reg.cajero or 'admin' }}
+      </div>
+
+
+      {% if tipo == 'entrada' %}
+
+      <div style="
+          font-weight:bold;
+          margin-bottom:8px;">
+
+        Conserve este ticket para su salida
+
+      </div>
+
+      {% endif %}
+
+
+      <hr style="
+          border:0;
+          border-top:1px dashed #000;
+          margin:10px 0;">
+
+
+      <!-- REGLAMENTO -->
+      <div style="
+          text-align:justify;
+          line-height:1.3;
+          font-size:0.75rem;">
+
+        <b style="
+            display:block;
+            text-align:center;
+            margin-bottom:5px;
+            font-size:0.85rem;">
+
+          — REGLAMENTO —
+
+        </b>
+
         • El vehículo se entregará al portador del recibo.<br>
         • No aceptamos órdenes telefónicas ni escritas.<br>
         • No respondemos por objetos dentro del vehículo.<br>
         • No respondemos por hurto ni daños de terceros.
+
       </div>
 
-      <div style="margin-top: 10px; border: 1px solid #000; padding: 5px; text-align: center; font-size: 0.65rem;">
-        <b style="font-size: 0.75rem;">SEGUROS MUNDIAL</b><br>
+
+      <!-- SEGUROS -->
+      <div style="
+          margin-top:10px;
+          border:1px solid #000;
+          padding:5px;
+          text-align:center;
+          font-size:0.65rem;">
+
+        <b style="font-size:0.75rem;">
+          SEGUROS MUNDIAL
+        </b>
+
+        <br>
+
         Póliza R.C. Extracontractual:<br>
-        <b>No. {{ poliza|default('') }}</b><br>
-        Certificado: <b>{{ certificado|default('') }}</b><br>
-        Vigencia: {{ vigencia|default('') }}
+
+        <b>
+          No. {{ poliza|default('') }}
+        </b>
+
+        <br>
+
+        Certificado:
+        <b>
+          {{ certificado|default('') }}
+        </b>
+
+        <br>
+
+        Vigencia:
+        {{ vigencia|default('') }}
+
       </div>
 
-      <div style="margin-top: 15px; border-top: 2px solid #000; padding-top: 8px; text-align: center; font-weight: bold;">
-        ¡GRACIAS POR SU VISITA!<br>
-        <span style="font-weight: normal; font-size: 0.7rem;">Sistema v2.0 · asesoriasgarzon@gmail.com</span>
+
+      <!-- FINAL -->
+      <div style="
+          margin-top:15px;
+          border-top:2px solid #000;
+          padding-top:8px;
+          text-align:center;
+          font-weight:bold;">
+
+        ¡GRACIAS POR SU VISITA!
+
+        <br>
+
+        <span style="
+            font-weight:normal;
+            font-size:0.7rem;">
+
+          Sistema v2.1 · asesoriasgarzon@gmail.com
+
+        </span>
+
       </div>
+
     </div>
+
   </div>
+
 </div>
 
-<div class="ticket-actions" style="text-align: center; margin-top: 20px; padding-bottom: 40px;">
-  <button onclick="imprimirRawBT()" class="btn-print btn-rawbt">🖨️ Imprimir en Térmica</button>
+
+<!-- ============================================================
+     BOTONES
+     ============================================================ -->
+<div class="ticket-actions"
+     style="
+       text-align:center;
+       margin-top:20px;
+       padding-bottom:40px;">
+
+  <button
+    onclick="imprimirRawBT()"
+    class="btn-print btn-rawbt">
+
+    🖨️ Imprimir en Térmica
+
+  </button>
+
   <br><br>
-  <button onclick="imprimirCompacto()" class="btn-print-alt">Imprimir con el navegador (respaldo)</button>
+
+  <button
+    onclick="imprimirCompacto()"
+    class="btn-print-alt">
+
+    Imprimir con el navegador (respaldo)
+
+  </button>
+
   <br><br>
-  <a href="{{ url_for('inicio') }}" style="text-decoration: none; color: #888; font-size: 0.9rem;">← Volver al Menú Principal</a>
+
+  <a
+    href="{{ url_for('inicio') }}"
+    style="
+      text-decoration:none;
+      color:#888;
+      font-size:0.9rem;">
+
+    ← Volver al Menú Principal
+
+  </a>
+
 </div>
 
+
+<!-- ============================================================
+     ESTILOS
+     ============================================================ -->
 <style>
-  .ticket-container { display: flex; justify-content: center; padding: 20px; background-color: #1a1a1b; }
-  .ticket-wrap { 
-    background: white; 
-    width: 350px; 
-    padding: 25px; 
-    display: flex; 
-    flex-direction: column; 
-    align-items: center; 
-    color: #000;
-  }
-  .btn-print { 
-    padding: 12px 40px; 
-    border-radius: 30px; 
-    cursor: pointer; 
-    background: #00d28d; 
-    border: none; 
-    font-weight: bold; 
-    color: white; 
-    font-size: 1rem; 
-  }
-  .btn-print-alt {
-    padding: 8px 24px;
-    border-radius: 30px;
-    cursor: pointer;
-    background: transparent;
-    border: 1px solid #666;
-    font-weight: normal;
-    color: #ccc;
-    font-size: 0.8rem;
+
+.ticket-container {
+  display:flex;
+  justify-content:center;
+  padding:20px;
+  background-color:#1a1a1b;
+}
+
+.ticket-wrap {
+  background:white;
+  width:350px;
+  padding:25px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  color:#000;
+}
+
+.btn-print {
+  padding:12px 40px;
+  border-radius:30px;
+  cursor:pointer;
+  background:#00d28d;
+  border:none;
+  font-weight:bold;
+  color:white;
+  font-size:1rem;
+}
+
+.btn-print-alt {
+  padding:8px 24px;
+  border-radius:30px;
+  cursor:pointer;
+  background:transparent;
+  border:1px solid #666;
+  font-weight:normal;
+  color:#ccc;
+  font-size:0.8rem;
+}
+
+.print-compact {
+  display:none;
+}
+
+.pc-linea {
+  border-top:1px dashed #000;
+  margin:4px 0;
+}
+
+
+/* ============================================================
+   IMPRESION
+   ============================================================ */
+
+@media print {
+
+  body {
+    margin:0;
+    padding:0;
   }
 
-  /* La versión compacta solo se usa dentro de la ventana emergente de
-     impresión (ver imprimirCompacto() en el script). En esta página
-     normal permanece oculta siempre. */
+  .ticket-container,
+  .ticket-actions {
+    display:none !important;
+  }
+
   .print-compact {
-    display: none;
+    display:block !important;
   }
 
-  .pc-linea {
-    border-top: 1px dashed #000;
-    margin: 4px 0;
-  }
+}
+
 </style>
 
+
+<!-- ============================================================
+     JAVASCRIPT
+     ============================================================ -->
 <script>
-  // ─── Datos del ticket, inyectados desde Flask/Jinja ─────────────
-  const ticketData = {
-    tipo:          {{ tipo | tojson }},
-    ticketNum:     {{ ("%05d"|format(reg.ticket_num)) | tojson }},
-    placa:         {{ reg.placa | tojson }},
-    vehiculoTipo:  {{ (reg.tipo | capitalize) | tojson }},
-    marca:         {{ (reg.marca or '---') | tojson }},
-    horaEntrada:   {{ reg.hora_entrada | tojson }},
-    horaSalida:    {{ (reg.hora_salida if tipo == 'salida' else '') | tojson }},
-    tiempoStr:     {{ (tiempo_str if tipo == 'salida' else '') | tojson }},
-    valor:         {{ (reg.valor | int if tipo == 'salida' else 0) | tojson }},
-    cajero:        {{ (reg.cajero or 'admin') | tojson }},
-    poliza:        {{ poliza | default('') | tojson }},
-    certificado:   {{ certificado | default('') | tojson }},
-    vigencia:      {{ vigencia | default('') | tojson }}
+
+/* ============================================================
+   DATOS DEL TICKET
+   ============================================================ */
+
+const ticketData = {
+
+  tipo:
+    {{ tipo | tojson }},
+
+  ticketNum:
+    {{ ("%05d"|format(reg.ticket_num)) | tojson }},
+
+  placa:
+    {{ reg.placa | tojson }},
+
+  vehiculoTipo:
+    {{ (reg.tipo | capitalize) | tojson }},
+
+  marca:
+    {{ (reg.marca or '---') | tojson }},
+
+  horaEntrada:
+    {{ reg.hora_entrada | tojson }},
+
+  horaSalida:
+    {{ (reg.hora_salida if tipo == 'salida' else '') | tojson }},
+
+  tiempoStr:
+    {{ (tiempo_str if tipo == 'salida' else '') | tojson }},
+
+  valor:
+    {{ (reg.valor | int if tipo == 'salida' else 0) | tojson }},
+
+  cajero:
+    {{ (reg.cajero or 'admin') | tojson }},
+
+  poliza:
+    {{ poliza | default('') | tojson }},
+
+  certificado:
+    {{ certificado | default('') | tojson }},
+
+  vigencia:
+    {{ vigencia | default('') | tojson }}
+
+};
+
+
+/* ============================================================
+   FORMATEAR PESOS
+   ============================================================ */
+
+function formatearPesos(valor) {
+
+  return "$" + Number(valor).toLocaleString("es-CO");
+
+}
+
+
+/* ============================================================
+   LIMPIAR TEXTO PARA ESC/POS
+   ============================================================ */
+
+function limpiarTexto(str) {
+
+  return String(str)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/ñ/g, "n")
+    .replace(/Ñ/g, "N")
+    .replace(/[^\x00-\x7F]/g, "");
+
+}
+
+
+/* ============================================================
+   TEXTO → BYTES
+   ============================================================ */
+
+function textoABytes(str) {
+
+  return Array.from(
+    new TextEncoder().encode(
+      limpiarTexto(str)
+    )
+  );
+
+}
+
+
+/* ============================================================
+   CONSTRUIR TICKET ESC/POS
+   ============================================================ */
+
+function construirBytesTicket(d) {
+
+  const ESC = 0x1B;
+  const GS  = 0x1D;
+  const LF  = 0x0A;
+
+  let b = [];
+
+  const push = (...arr) => {
+    b.push(...arr);
   };
 
-  // ─── Formatea el valor en pesos: 13000 -> $13.000 ───────────────
-  function formatearPesos(valor) {
-    return "$" + Number(valor).toLocaleString("es-CO");
-  }
+  const txt = (s) => {
+    push(...textoABytes(s));
+  };
 
-  // ─── Quita tildes/ñ para evitar caracteres raros en la impresora ──
-  function limpiarTexto(str) {
-    return String(str)
-      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-      .replace(/ñ/g, "n").replace(/Ñ/g, "N")
-      .replace(/[^\x00-\x7F]/g, "");
-  }
+  const nl = (n = 1) => {
 
-  function textoABytes(str) {
-    return Array.from(new TextEncoder().encode(limpiarTexto(str)));
-  }
+    for (let i = 0; i < n; i++) {
+      push(LF);
+    }
 
-  // ─── Arma los comandos ESC/POS reales (binarios) del ticket ─────
-  function construirBytesTicket(d) {
-    const ESC = 0x1B, GS = 0x1D, LF = 0x0A;
-    let b = [];
-    const push = (...arr) => b.push(...arr);
-    const txt = (s) => push(...textoABytes(s));
-    const nl = (n = 1) => { for (let i = 0; i < n; i++) push(LF); };
-    const alignC = () => push(ESC, 0x61, 1);
-    const alignL = () => push(ESC, 0x61, 0);
-    const boldOn = () => push(ESC, 0x45, 1);
-    const boldOff = () => push(ESC, 0x45, 0);
-    const bigOn = () => push(GS, 0x21, 0x11);
-    const bigOff = () => push(GS, 0x21, 0x00);
-    const linea = () => { txt("--------------------------------"); nl(); };
+  };
 
-    push(ESC, 0x40); // inicializa la impresora
+  const alignC = () => {
+    push(ESC, 0x61, 1);
+  };
 
-    alignC(); boldOn();
-    txt("PARQUEADERO EL PUENTE"); nl();
+  const alignL = () => {
+    push(ESC, 0x61, 0);
+  };
+
+  const boldOn = () => {
+    push(ESC, 0x45, 1);
+  };
+
+  const boldOff = () => {
+    push(ESC, 0x45, 0);
+  };
+
+  const bigOn = () => {
+    push(GS, 0x21, 0x11);
+  };
+
+  const bigOff = () => {
+    push(GS, 0x21, 0x00);
+  };
+
+  const linea = () => {
+
+    txt("--------------------------------");
+    nl();
+
+  };
+
+
+  /* ----------------------------------------------------------
+     INICIALIZAR
+     ---------------------------------------------------------- */
+
+  push(ESC, 0x40);
+
+
+  /* ----------------------------------------------------------
+     ENCABEZADO
+     ---------------------------------------------------------- */
+
+  alignC();
+  boldOn();
+
+  txt("PARQUEADERO EL PUENTE");
+  nl();
+
+  boldOff();
+
+  txt("Nit: 1.151.952.649-3");
+  nl();
+
+  txt("Cra 4 # 5-26");
+  nl();
+
+  txt("Tel: 3152775288");
+  nl();
+
+  txt("Horario: 7:00am - 6:30pm");
+  nl();
+
+  linea();
+
+
+  /* ----------------------------------------------------------
+     TICKET
+     ---------------------------------------------------------- */
+
+  alignL();
+
+  txt(
+    "Ticket: " +
+    d.ticketNum +
+    "   " +
+    d.tipo.toUpperCase()
+  );
+
+  nl();
+
+
+  /* ----------------------------------------------------------
+     PLACA
+     ---------------------------------------------------------- */
+
+  alignC();
+
+  bigOn();
+  boldOn();
+
+  txt(d.placa);
+  nl();
+
+  bigOff();
+  boldOff();
+
+  linea();
+
+
+  /* ----------------------------------------------------------
+     DATOS VEHICULO
+     ---------------------------------------------------------- */
+
+  alignL();
+
+  txt(
+    "Tipo: " +
+    d.vehiculoTipo
+  );
+
+  nl();
+
+  txt(
+    "Marca: " +
+    d.marca
+  );
+
+  nl();
+
+
+  /* ----------------------------------------------------------
+     ENTRADA / SALIDA
+     ---------------------------------------------------------- */
+
+  txt(
+    "Entrada: " +
+    d.horaEntrada
+  );
+
+  nl();
+
+
+  if (d.tipo === "salida") {
+
+    txt(
+      "Salida:  " +
+      d.horaSalida
+    );
+
+    nl();
+
+    txt(
+      "Tiempo:  " +
+      d.tiempoStr
+    );
+
+    nl();
+
+    linea();
+
+
+    /* --------------------------------------------------------
+       TOTAL
+       -------------------------------------------------------- */
+
+    alignC();
+
+    boldOn();
+
+    txt("TOTAL A PAGAR");
+    nl();
+
+    bigOn();
+
+    txt(
+      formatearPesos(d.valor)
+    );
+
+    nl();
+
+    bigOff();
     boldOff();
-    txt("Cra 4 # 5-26 - Tel: 3152775288"); nl();
+
+  } else {
+
+    /* --------------------------------------------------------
+       TARIFAS ENTRADA
+       -------------------------------------------------------- */
+
     linea();
 
     alignL();
-    txt("Ticket: " + d.ticketNum + "   " + d.tipo.toUpperCase()); nl();
-    txt("Fecha: " + d.horaEntrada); nl();
 
-    alignC(); bigOn(); boldOn();
-    txt(d.placa); nl();
-    bigOff(); boldOff();
+    if (
+      d.vehiculoTipo.toLowerCase() === "carro"
+    ) {
 
-    alignL();
-    txt("Tipo: " + d.vehiculoTipo + "   Marca: " + d.marca); nl();
+      txt("$4.000 primera hora");
+      nl();
 
-    if (d.tipo === "salida") {
-      txt("Entrada: " + d.horaEntrada); nl();
-      txt("Salida:  " + d.horaSalida); nl();
-      txt("Tiempo:  " + d.tiempoStr); nl();
-      linea();
-      alignC(); boldOn();
-      txt("TOTAL A PAGAR"); nl();
-      bigOn();
-      txt(formatearPesos(d.valor)); nl();
-      bigOff(); boldOff();
+      txt("$3.500 fraccion adicional");
+      nl();
+
+      txt("Dia completo: $14.000");
+      nl();
+
     } else {
-      linea();
-      alignL();
-      if (d.vehiculoTipo.toLowerCase() === "carro") {
-        txt("$4.000 primera hora"); nl();
-        txt("$3.500 fraccion adicional"); nl();
-        txt("Dia completo: $13.000"); nl();
-      } else {
-        txt("$2.500 hora o fraccion"); nl();
-        txt("Dia completo: $7.000"); nl();
-      }
+
+      txt("$2.500 hora o fraccion");
+      nl();
+
+      txt("Dia completo: $7.000");
+      nl();
+
     }
 
-    linea();
-    alignL();
-    txt("Atendido: " + d.cajero); nl();
-    txt("Conserve este ticket para su salida"); nl();
-    linea();
-
-    txt("Seguros Mundial - Poliza " + d.poliza); nl();
-    txt("Cert: " + d.certificado + "  Vig: " + d.vigencia); nl();
-    linea();
-
-    alignC(); boldOn();
-    txt("GRACIAS POR SU VISITA!"); nl();
-    boldOff();
-    nl(3);
-
-    // Corte de papel (si tu impresora no corta automatico, se ignora)
-    push(GS, 0x56, 0x42, 0x00);
-
-    return Uint8Array.from(b);
   }
 
-  // ─── Convierte bytes binarios a base64 (a prueba de datos grandes) ─
-  function bytesABase64(bytes) {
-    let binary = "";
-    const chunk = 0x8000;
-    for (let i = 0; i < bytes.length; i += chunk) {
-      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
-    }
-    return btoa(binary);
+
+  /* ----------------------------------------------------------
+     PIE
+     ---------------------------------------------------------- */
+
+  linea();
+
+  alignL();
+
+  txt(
+    "Atendido: " +
+    d.cajero
+  );
+
+  nl();
+
+
+  if (d.tipo === "entrada") {
+
+    txt(
+      "Conserve este ticket para su salida"
+    );
+
+    nl();
+
   }
 
-  // ─── Imprime SOLO el ticket compacto, en una ventana limpia ─────
-  // Esto evita que impresoras/drivers "de solo texto" impriman el
-  // resto de la página (menú, formularios) que quedaba oculto con CSS.
-  function imprimirCompacto() {
-    const contenido = document.querySelector(".print-compact").innerHTML;
-    const ventana = window.open("", "_blank", "width=400,height=600");
 
-    ventana.document.open();
-    ventana.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Ticket</title>
-        <style>
-          @page { size: 80mm auto; margin: 0; }
-          * { box-sizing: border-box; }
-          body {
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 14px;
-            font-weight: 600;
-            line-height: 1.4;
-            letter-spacing: 0.2px;
-            text-shadow: 0.3px 0 0 currentColor;
-            color: #000;
-            margin: 0;
-            padding: 6px;
-          }
-          .pc-linea { border-top: 1px dashed #000; margin: 4px 0; }
-          .pc-icon { filter: brightness(0) saturate(100%); }
-        </style>
-      </head>
-      <body>${contenido}</body>
-      </html>
-    `);
-    ventana.document.close();
+  linea();
 
-    ventana.onload = function () {
-      ventana.focus();
-      ventana.print();
-      setTimeout(() => ventana.close(), 500);
-    };
+
+  /* ----------------------------------------------------------
+     SEGUROS
+     ---------------------------------------------------------- */
+
+  txt(
+    "Seguros Mundial"
+  );
+
+  nl();
+
+  txt(
+    "Poliza: " +
+    d.poliza
+  );
+
+  nl();
+
+  txt(
+    "Certificado: " +
+    d.certificado
+  );
+
+  nl();
+
+  txt(
+    "Vigencia: " +
+    d.vigencia
+  );
+
+  nl();
+
+  linea();
+
+
+  /* ----------------------------------------------------------
+     MENSAJE FINAL
+     ---------------------------------------------------------- */
+
+  alignC();
+
+  boldOn();
+
+  txt(
+    "GRACIAS POR SU VISITA!"
+  );
+
+  nl();
+
+  boldOff();
+
+  nl(3);
+
+
+  /* ----------------------------------------------------------
+     CORTE DE PAPEL
+     ---------------------------------------------------------- */
+
+  push(
+    GS,
+    0x56,
+    0x42,
+    0x00
+  );
+
+
+  return Uint8Array.from(b);
+
+}
+
+
+/* ============================================================
+   BYTES → BASE64
+   ============================================================ */
+
+function bytesABase64(bytes) {
+
+  let binary = "";
+
+  const chunk = 0x8000;
+
+  for (
+    let i = 0;
+    i < bytes.length;
+    i += chunk
+  ) {
+
+    binary += String.fromCharCode.apply(
+      null,
+      bytes.subarray(
+        i,
+        i + chunk
+      )
+    );
+
   }
 
-  // ─── Dispara la impresión vía RawBT (debe estar instalado) ──────
-  function imprimirRawBT() {
-    const bytes = construirBytesTicket(ticketData);
-    const base64 = bytesABase64(bytes);
-    const link = "intent:base64," + base64 +
-      "#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;";
+  return btoa(binary);
+
+}
+
+
+/* ============================================================
+   IMPRESIÓN POR NAVEGADOR
+   ============================================================ */
+
+function imprimirCompacto() {
+
+  const contenido =
+    document.querySelector(
+      ".print-compact"
+    ).innerHTML;
+
+
+  const ventana =
+    window.open(
+      "",
+      "_blank",
+      "width=400,height=600"
+    );
+
+
+  if (!ventana) {
+
+    alert(
+      "El navegador bloqueo la ventana de impresion. Permite las ventanas emergentes para este sitio."
+    );
+
+    return;
+
+  }
+
+
+  ventana.document.open();
+
+
+  ventana.document.write(`
+
+    <!DOCTYPE html>
+
+    <html>
+
+    <head>
+
+      <meta charset="utf-8">
+
+      <title>Ticket</title>
+
+      <style>
+
+        @page {
+          size:80mm auto;
+          margin:0;
+        }
+
+        * {
+          box-sizing:border-box;
+        }
+
+        body {
+
+          font-family:
+            'Courier New',
+            Courier,
+            monospace;
+
+          font-size:14px;
+
+          font-weight:600;
+
+          line-height:1.4;
+
+          letter-spacing:0.2px;
+
+          text-shadow:
+            0.3px 0 0 currentColor;
+
+          color:#000;
+
+          margin:0;
+
+          padding:6px;
+
+        }
+
+        .pc-linea {
+
+          border-top:
+            1px dashed #000;
+
+          margin:4px 0;
+
+        }
+
+      </style>
+
+    </head>
+
+    <body>
+
+      ${contenido}
+
+    </body>
+
+    </html>
+
+  `);
+
+
+  ventana.document.close();
+
+
+  ventana.onload = function() {
+
+    ventana.focus();
+
+    ventana.print();
+
+
+    setTimeout(
+      () => ventana.close(),
+      500
+    );
+
+  };
+
+}
+
+
+/* ============================================================
+   IMPRESION RAWBT
+   ============================================================ */
+
+function imprimirRawBT() {
+
+  try {
+
+    const bytes =
+      construirBytesTicket(
+        ticketData
+      );
+
+
+    const base64 =
+      bytesABase64(bytes);
+
+
+    const link =
+      "intent:base64," +
+      base64 +
+      "#Intent;scheme=rawbt;" +
+      "package=ru.a402d.rawbtprinter;" +
+      "end;";
+
+
     window.location.href = link;
+
+  } catch (error) {
+
+    console.error(
+      "Error al generar ticket:",
+      error
+    );
+
+    alert(
+      "No fue posible preparar el ticket para impresion."
+    );
+
   }
+
+}
 
 </script>
 
