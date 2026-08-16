@@ -101,7 +101,7 @@ def init_db():
     # Datos iniciales (Usuarios y Tarifas 2026)
     c.execute("INSERT OR IGNORE INTO usuarios (username, password, rol) VALUES ('admin', 'admin123', 'admin')")
     c.execute("INSERT OR IGNORE INTO usuarios (username, password, rol) VALUES ('operador', 'op123', 'operador')")
-    c.execute("INSERT OR IGNORE INTO tarifas (id, tipo, valor_hora, valor_dia, minutos_cortesia) VALUES (1, 'carro', 4000, 13000, 5)")
+    c.execute("INSERT OR IGNORE INTO tarifas (id, tipo, valor_hora, valor_dia, minutos_cortesia) VALUES (1, 'carro', 4000, 14000, 5)")
     c.execute("INSERT OR IGNORE INTO tarifas (id, tipo, valor_hora, valor_dia, minutos_cortesia) VALUES (2, 'moto', 2500, 7000, 5)")
     
     # --- BLOQUE DE ACTUALIZACIÓN SEGURO (Evolución de la BD) ---
@@ -139,7 +139,14 @@ def init_db():
             c.execute(f"ALTER TABLE mensualidades ADD COLUMN {col[0]} {col[1]}")
         except Exception:
             pass # La columna ya existe
-
+    
+    # Actualizar tarifa diaria del carro a $14.000
+    c.execute("""
+        UPDATE tarifas
+        SET valor_dia = 14000
+        WHERE tipo = 'carro'
+    """)
+    
     conn.commit()
     conn.close()
     print("Base de datos inicializada y actualizada correctamente.")
@@ -171,31 +178,35 @@ def get_tarifas():
 def calcular_valor(tipo, minutos_totales, tarifas):
     t = tarifas[tipo]
     cortesia = t["minutos_cortesia"]
-    
-    # 1. Validación de cortesía inicial
+
+    # Cortesía inicial
     if minutos_totales <= cortesia:
         return 0
-        
+
     if tipo == "carro":
-        # Primera hora o fracción (hasta el minuto 60)
+
+        # Primera hora o fracción
         if minutos_totales <= 60:
-            total = t["valor_hora"]  # $4.000
+            total = t["valor_hora"]
+
         else:
-            # Calculamos las horas adicionales (fracciones de 60 min)
-            # math.ceil redondea hacia arriba cualquier minuto excedente
+            # Horas/fracciones adicionales
             fracciones = math.ceil((minutos_totales - 60) / 60)
-            # Primera hora ($4.000) + Horas extras ($3.500 c/u)
+
+            # Primera hora $4.000
+            # Cada fracción adicional $3.500
             total = t["valor_hora"] + fracciones * (t["valor_hora"] - 500)
-        
-        # Eliminamos el min(total, t["valor_dia"]) para que NO tenga tope
-        return total 
+
+        # Tope máximo diario: $14.000
+        return min(total, t["valor_dia"])
 
     else:
-        # Lógica para motos: cobro lineal por hora o fracción
+
+        # Moto: $2.500 por hora o fracción
         total = math.ceil(minutos_totales / 60) * t["valor_hora"]
-        
-        # También eliminamos el tope para las motos
-        return total
+
+        # Tope máximo diario: $7.000
+        return min(total, t["valor_dia"])
 
 def get_consecutivo(conn):
     # Esta función maneja el número de ticket (1, 2, 3...)
