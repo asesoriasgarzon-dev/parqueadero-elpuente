@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify, send_file
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, send_file, flash
 import sqlite3, os, math, shutil, secrets, hmac
 import pytz
 import calendar
@@ -74,8 +74,15 @@ if not os.path.exists(BACKUP_DIR):
 
 # ─── Base de datos ────────────────────────────────────────────────
 def get_db():
-    conn = sqlite3.connect(DB_FILE)
+    # timeout=10: si otra conexión tiene el archivo bloqueado escribiendo,
+    # espera hasta 10s reintentando en vez de fallar de inmediato con
+    # "database is locked" (fundamental con varios operadores a la vez).
+    conn = sqlite3.connect(DB_FILE, timeout=10)
     conn.row_factory = sqlite3.Row
+    # WAL: permite que las lecturas (consultas, listados) no se bloqueen
+    # mientras otra conexión está escribiendo una entrada/salida.
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=8000")
     return conn
 
 def init_db():
@@ -247,10 +254,22 @@ def calcular_valor(tipo, minutos_totales, tarifas):
         return min(total, t["valor_dia"])
 
 def get_consecutivo(conn):
-    # Esta función maneja el número de ticket (1, 2, 3...)
+    """
+    Entrega el siguiente número de ticket (1, 2, 3...).
+
+    IMPORTANTE: a propósito NO se hace conn.commit() aquí. En SQLite, el
+    UPDATE de abajo toma el bloqueo de escritura de la base de datos desde
+    el momento en que se ejecuta, y lo mantiene hasta que la conexión que
+    llamó a esta función haga su propio commit() más adelante (después de
+    insertar la fila en `parqueadero`). Mientras ese commit no ocurra,
+    ninguna otra conexión puede tomar un número de ticket, así que dos
+    operadores registrando una entrada al mismo tiempo NUNCA pueden recibir
+    el mismo consecutivo. Si esta función hiciera su propio commit() antes
+    de que el llamador termine, se abriría una ventana en la que otra
+    conexión podría colarse y repetir el número (el bug original).
+    """
     c = conn.cursor()
     c.execute("UPDATE consecutivo SET numero = numero + 1 WHERE id = 1")
-    conn.commit()
     res = conn.execute("SELECT numero FROM consecutivo WHERE id = 1").fetchone()
     return res["numero"]
 
@@ -612,8 +631,20 @@ def salida_form():
             # - Tarifa de día
             # - Un valor autorizado/manual
             # ----------------------------------------------------
+            #
+            # NOTA sobre concurrencia (doble salida):
+            #
+            # Entre el SELECT de arriba y este UPDATE, otro operador
+            # pudo haber registrado la salida de este mismo vehículo
+            # (dos cajeros atendiendo el mismo carro casi al mismo
+            # tiempo). Por eso el UPDATE repite la condición
+            # "hora_salida IS NULL": si alguien más ya lo cerró, esta
+            # sentencia no actualiza ninguna fila (rowcount = 0) y lo
+            # detectamos abajo, en vez de sobreescribir en silencio
+            # el cobro/ticket que el otro operador ya generó.
+            # ----------------------------------------------------
 
-            conn.execute("""
+            cur = conn.execute("""
                 UPDATE parqueadero
                 SET
                     hora_salida = ?,
@@ -621,6 +652,7 @@ def salida_form():
                     metodo_pago = ?,
                     cajero = ?
                 WHERE id = ?
+                  AND hora_salida IS NULL
             """, (
                 ahora,
                 valor_pago,
@@ -629,6 +661,17 @@ def salida_form():
                 reg2["id"]
             ))
 
+            if cur.rowcount == 0:
+                # Alguien más ganó la carrera: ya se registró la salida
+                # de este vehículo entre que lo consultamos y confirmamos.
+                conn.rollback()
+                conn.close()
+                flash(
+                    "Este vehículo ya fue despachado por otro operador "
+                    "justo antes de confirmar. Verifica el histórico.",
+                    "error"
+                )
+                return redirect(url_for("salida_form"))
 
             conn.commit()
 
@@ -651,9 +694,16 @@ def salida_form():
 
         # --------------------------------------------------------
         # Si el vehículo ya no está disponible
+        # (ya salió, o la placa no existe / no está en el patio)
         # --------------------------------------------------------
 
         conn.close()
+        flash(
+            "No se encontró ese vehículo activo en el patio "
+            "(puede que ya haya salido).",
+            "error"
+        )
+        return redirect(url_for("salida_form"))
 
 
     # ============================================================

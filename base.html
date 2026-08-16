@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Parqueadero El Puente{% endblock %}</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2898/2898588.png">
+    <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/2898/2898588.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="El Puente">
+    <meta name="mobile-web-app-capable" content="yes">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body style="margin: 0; padding: 0; background-color: #0d1117;"> 
+    {% if session.usuario %}
+    <nav class="navbar">
+        <a class="navbar-brand" href="{{ url_for('inicio') }}">
+            <span style="font-size: 1.5rem;">🅿️</span> <span>El Puente</span>
+        </a>
+        
+        <div class="nav-links">
+            <a href="{{ url_for('inicio') }}" {% if request.endpoint == 'inicio' %}class="active"{% endif %}>Inicio</a>
+            <a href="{{ url_for('clientes') }}" {% if request.endpoint == 'clientes' %}class="active"{% endif %}>Activos</a>
+            <a href="{{ url_for('historico') }}" {% if request.endpoint == 'historico' %}class="active"{% endif %}>Histórico</a>
+            <a href="{{ url_for('caja') }}" {% if request.endpoint == 'caja' %}class="active"{% endif %}>Caja</a>
+            <a href="{{ url_for('mensualidades') }}" {% if request.endpoint == 'mensualidades' %}class="active"{% endif %}>Mensualidades</a>
+            
+            {% if session.rol == 'admin' %}
+                <a href="{{ url_for('gestion_usuarios') }}" {% if request.endpoint == 'gestion_usuarios' %}class="active"{% endif %}>Usuarios</a>
+                <a href="{{ url_for('estadisticas') }}" {% if request.endpoint == 'estadisticas' %}class="active"{% endif %}>Estadísticas</a>
+                <a href="{{ url_for('tarifas') }}" {% if request.endpoint == 'tarifas' %}class="active"{% endif %}>Tarifas</a>
+                <a href="{{ url_for('backup') }}" title="Copia de Seguridad" style="font-size: 1.2rem;">💾</a>
+            {% endif %}
+        </div>
+
+        <div class="nav-user">
+            <span>👤 <b>{{ session.usuario }}</b> <small style="color:var(--accent); text-transform:uppercase; font-size:0.6rem;">{{ session.rol }}</small></span>
+            <a href="{{ url_for('perfil') }}" title="Configurar Perfil">⚙️</a>
+            <a href="{{ url_for('logout') }}" style="color: #ff4444; margin-left: 10px; text-decoration: none;">Salir</a>
+        </div>
+    </nav>
+    {% endif %}
+
+    <div class="main-wrapper" style="display: flex; justify-content: center; width: 100%;">
+        
+        <div class="container" 
+             style="width: 100%; 
+                    max-width: {% if request.endpoint == 'login' %}400px{% else %}900px{% endif %}; 
+                    margin: {% if request.endpoint == 'login' %}10vh{% else %}20px{% endif %} auto; 
+                    padding: 20px; 
+                    box-sizing: border-box;">
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                {% for category, message in messages %}
+                  {% if category == 'error' %}
+                  <div style="padding: 15px; margin-bottom: 20px; border-radius: 8px; text-align: center; background: rgba(255,71,87,0.1); border: 1px solid #ff4757; color: #ff4757;">
+                  {% else %}
+                  <div style="padding: 15px; margin-bottom: 20px; border-radius: 8px; text-align: center; background: rgba(0,210,141,0.1); border: 1px solid #00d28d; color: #00d28d;">
+                  {% endif %}
+                    {{ message }}
+                  </div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+
+    <footer style="text-align: center; padding: 2rem 0; color: #8b949e; font-size: 0.85rem; border-top: 1px solid #30363d; margin-top: 3rem;">
+        <p>© 2026 Parqueadero <b>El Puente</b> | Versión 2.3</p>
+        <p>Desarrollado por: <span style="color: #00d28d;">asesoriasgarzon@gmail.com</span></p>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
