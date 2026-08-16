@@ -58,7 +58,11 @@
             {% with messages = get_flashed_messages(with_categories=true) %}
               {% if messages %}
                 {% for category, message in messages %}
+                  {% if category == 'error' %}
+                  <div style="padding: 15px; margin-bottom: 20px; border-radius: 8px; text-align: center; background: rgba(255,71,87,0.1); border: 1px solid #ff4757; color: #ff4757;">
+                  {% else %}
                   <div style="padding: 15px; margin-bottom: 20px; border-radius: 8px; text-align: center; background: rgba(0,210,141,0.1); border: 1px solid #00d28d; color: #00d28d;">
+                  {% endif %}
                     {{ message }}
                   </div>
                 {% endfor %}
