@@ -460,19 +460,34 @@ function solicitarAnulacion(id, valorErroneo) {
 
 
   /* ----------------------------------------------------------
-     4. ENVIAR A LA RUTA
+     4. ENVIAR A LA RUTA (POST, con token CSRF)
      ---------------------------------------------------------- */
 
-  const url =
-    "/anular_pago/" +
-    encodeURIComponent(id) +
-    "?motivo=" +
-    encodeURIComponent(motivo.trim()) +
-    "&real=" +
-    encodeURIComponent(valorLimpio);
+  const token = document
+    .querySelector('meta[name="csrf-token"]')
+    .content;
 
-
-  window.location.href = url;
+  fetch("/anular_pago/" + encodeURIComponent(id), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      "X-CSRFToken": token
+    },
+    body: new URLSearchParams({
+      motivo: motivo.trim(),
+      real: valorLimpio
+    })
+  })
+    .then(resp => {
+      if (resp.ok) {
+        window.location.href = "/historico";
+      } else {
+        alert("No se pudo anular el pago. Intenta de nuevo.");
+      }
+    })
+    .catch(() => {
+      alert("Error de conexión al anular el pago.");
+    });
 
 }
 

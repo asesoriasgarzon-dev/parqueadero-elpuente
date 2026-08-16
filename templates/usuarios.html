@@ -38,15 +38,13 @@
 
                 <td>
 
-                    <a href="{{ url_for('reset_password', id=u.id) }}" 
-
-                       class="btn btn-warn" style="font-size: 0.8rem; padding: 5px 10px;"
-
-                       onclick="return confirm('¿Resetear clave a: cambiar123?')">
-
-                        🔄 Reset Clave
-
-                    </a>
+                    <form method="POST" action="{{ url_for('reset_password', id=u.id) }}"
+                          onsubmit="return confirm('¿Resetear clave a: cambiar123?')" style="display:inline;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-warn" style="font-size: 0.8rem; padding: 5px 10px;">
+                            🔄 Reset Clave
+                        </button>
+                    </form>
 
                 </td>
 

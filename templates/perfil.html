@@ -16,6 +16,7 @@
         {% endif %}
 
         <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div style="margin-bottom: 1rem;">
                 <label style="display: block; color: var(--text2); margin-bottom: 0.5rem;">Nueva Contraseña:</label>
                 <input type="password" name="password" class="form-control" required style="width: 100%;">

@@ -6,6 +6,7 @@
 
 <div class="card" style="max-width:600px">
   <form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     {% for t in tarifas %}
     <div style="border:1px solid var(--border);border-radius:10px;padding:1.2rem;margin-bottom:1.2rem">
       <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.3rem;font-weight:900;margin-bottom:1rem;color:var(--accent)">

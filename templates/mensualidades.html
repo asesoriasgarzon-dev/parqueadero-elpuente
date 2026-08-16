@@ -32,9 +32,11 @@
 
 <div class="page-title">Gestión de <span>Mensualidades</span></div>
 
+{% if session.rol == 'admin' %}
 <div class="card" style="max-width:850px;margin-bottom:1.5rem">
   <div style="font-weight:700;margin-bottom:1rem;color:var(--text2)">Registrar / Actualizar Mensualidad</div>
   <form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div style="display:grid;grid-template-columns: 1fr 1fr 1fr; gap:.8rem">
       <div class="form-group"><label>Nombre</label><input name="nombre" class="form-control" required></div>
       <div class="form-group"><label>Placa</label><input name="placa" class="form-control" style="text-transform:uppercase" required></div>
@@ -92,11 +94,13 @@
     </a>
 
     <form action="{{ url_for('cargar_excel_mensualidades') }}" method="POST" enctype="multipart/form-data" style="display:flex; align-items:center; gap:.6rem; margin:0;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="file" name="archivo_excel" accept=".xlsx,.xls" class="form-control" required style="max-width:260px;">
       <button type="submit" class="btn btn-primary">Cargar Excel</button>
     </form>
   </div>
 </div>
+{% endif %}
 
 <div class="card" style="margin-bottom: 1.5rem; border-left: 4px solid var(--accent);">
   <div class="form-group" style="margin-bottom: 0;">
@@ -134,10 +138,14 @@
         {% else %}<span class="badge badge-green">Activo</span>{% endif %}
       </td>
       <td><small>Hasta: {{ item.reg.fecha_fin }}</small></td>
-      <td>
-        <a href="{{ url_for('eliminar_mensualidad', id=item.reg.id) }}" 
-           class="btn btn-danger btn-sm" 
-           onclick="event.stopPropagation(); return confirm('¿Eliminar?')">Borrar</a>
+      <td onclick="event.stopPropagation();">
+        {% if session.rol == 'admin' %}
+        <form method="POST" action="{{ url_for('eliminar_mensualidad', id=item.reg.id) }}"
+              onsubmit="return confirm('¿Eliminar?')" style="display:inline;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-danger btn-sm">Borrar</button>
+        </form>
+        {% endif %}
       </td>
     </tr>
     
