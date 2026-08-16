@@ -4,3 +4,4 @@ pytz
 openpyxl
 flask-wtf
 flask-limiter
+fpdf2

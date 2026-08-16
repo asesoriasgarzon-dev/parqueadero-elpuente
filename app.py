@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from functools import wraps
 from io import BytesIO
 from openpyxl import Workbook, load_workbook
+from fpdf import FPDF
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from flask_wtf import CSRFProtect
@@ -103,7 +104,7 @@ def get_db():
 # construcción (revisa qué existe antes de crear/alterar) -- pero deja un
 # número visible en la BD (tabla schema_version) para saber, con solo
 # mirar los datos, en qué versión de esquema quedó cada instalación.
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 def _columna_existe(conn, tabla, columna):
     filas = conn.execute(f"PRAGMA table_info({tabla})").fetchall()
@@ -201,6 +202,25 @@ def init_db():
     # 8. Tabla Schema Version (control de migraciones)
     c.execute("""CREATE TABLE IF NOT EXISTS schema_version (
         version INTEGER
+    )""")
+
+    # 9. Tabla Cierres de Caja (cuadre real: base inicial + conteo físico)
+    # Un cierre por fecha (UNIQUE): guarda con cuánto efectivo se abrió el
+    # día, cuánto debería haber según el sistema (base + ventas en
+    # efectivo del día), cuánto contó realmente el cajero, y la
+    # diferencia entre ambos. Si un día se cierra más de una vez (por
+    # ejemplo, para corregir un error), se sobreescribe y queda el
+    # rastro del cambio en auditoria (ver /caja/cerrar).
+    c.execute("""CREATE TABLE IF NOT EXISTS cierres_caja (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        fecha TEXT UNIQUE,
+        base_inicial REAL,
+        efectivo_esperado REAL,
+        efectivo_contado REAL,
+        diferencia REAL,
+        usuario TEXT,
+        fecha_hora TEXT,
+        observaciones TEXT
     )""")
 
     # Datos iniciales (Usuarios y Tarifas 2026)
@@ -825,6 +845,23 @@ def salida_form():
         tiempo_str=tiempo_str
     )
 
+def _tiempo_str_reg(reg):
+    """
+    Calcula el texto "Xh Ym" del tiempo transcurrido entre la entrada y
+    la salida de un registro. Usado tanto por ticket_salida() (la vista
+    web que ve el operador) como por el generador de PDF de tickets del
+    día -- así los dos calculan el tiempo exactamente igual.
+    """
+    if reg and reg["hora_entrada"] and reg["hora_salida"]:
+        entrada_dt = datetime.strptime(reg["hora_entrada"], "%Y-%m-%d %H:%M:%S")
+        salida_dt = datetime.strptime(reg["hora_salida"], "%Y-%m-%d %H:%M:%S")
+        dur = salida_dt - entrada_dt
+        mins = int(max(0, dur.total_seconds() // 60))
+        h, m = divmod(mins, 60)
+        return f"{h}h {m}m"
+    return ""
+
+
 # ─── Tickets (vista imprimible) ───────────────────────────────────
 @app.route("/ticket/entrada/<int:ticket>")
 @login_required
@@ -849,16 +886,8 @@ def ticket_salida(ticket):
     reg = conn.execute("SELECT * FROM parqueadero WHERE ticket_num=?", (ticket,)).fetchone()
     conn.close()
     
-    if reg and reg["hora_entrada"] and reg["hora_salida"]:
-        entrada_dt = datetime.strptime(reg["hora_entrada"], "%Y-%m-%d %H:%M:%S")
-        salida_dt = datetime.strptime(reg["hora_salida"], "%Y-%m-%d %H:%M:%S")
-        dur = salida_dt - entrada_dt
-        mins = int(max(0, dur.total_seconds() // 60))
-        h, m = divmod(mins, 60)
-        tiempo_str = f"{h}h {m}m"
-    else:
-        tiempo_str = ""
-    
+    tiempo_str = _tiempo_str_reg(reg)
+
     # TAMBIÉN LOS PASAMOS EN LA SALIDA
     return render_template("ticket.html", 
                            reg=reg, 
@@ -916,11 +945,11 @@ def historico():
 def caja():
     ahora_co = get_colombia_time()
     fecha_hoy = ahora_co.strftime("%Y-%m-%d")
-    
+
     # Recibimos ambos parámetros, si no existen, por defecto es hoy
     fecha_inicio = request.args.get("fecha_inicio", fecha_hoy)
     fecha_fin = request.args.get("fecha_fin", fecha_hoy)
-    
+
     conn = get_db()
     # Cambiamos la consulta SQL para que use un rango (BETWEEN)
     # Se excluyen los pagos anulados: un cobro anulado no es un ingreso
@@ -933,18 +962,312 @@ def caja():
         ORDER BY hora_salida DESC
     """
     regs = conn.execute(query, (fecha_inicio, fecha_fin)).fetchall()
-    
+
     total = sum(r["valor"] for r in regs if r["valor"])
     por_metodo = {}
     for r in regs:
         m = r["metodo_pago"] or "Efectivo"
         metodo_base = m.split(" - ")[0]
         por_metodo[metodo_base] = por_metodo.get(metodo_base, 0) + (r["valor"] or 0)
+
+    # Últimos cuadres de caja (conteo físico), para ver de un vistazo si
+    # ha habido descuadres recientes.
+    cierres_recientes = conn.execute(
+        "SELECT * FROM cierres_caja ORDER BY fecha DESC LIMIT 15"
+    ).fetchall()
+
     conn.close()
-    
-    return render_template("caja.html", regs=regs, total=int(total), 
-                           fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, 
-                           por_metodo=por_metodo)
+
+    return render_template("caja.html", regs=regs, total=int(total),
+                           fecha_inicio=fecha_inicio, fecha_fin=fecha_fin,
+                           por_metodo=por_metodo, cierres_recientes=cierres_recientes,
+                           fecha_hoy=fecha_hoy)
+
+
+def _efectivo_ventas_dia(conn, fecha):
+    """
+    Suma de lo cobrado en EFECTIVO en una fecha (excluyendo pagos
+    anulados) -- es la parte que aporta el sistema al "efectivo
+    esperado" de un cuadre de caja; los pagos con tarjeta/transferencia
+    no cuentan porque no son plata física que deba estar en la caja.
+    """
+    regs = conn.execute("""
+        SELECT metodo_pago, valor FROM parqueadero
+        WHERE date(hora_salida) = ?
+          AND (anulado = 0 OR anulado IS NULL)
+    """, (fecha,)).fetchall()
+    total = 0
+    for r in regs:
+        metodo_base = (r["metodo_pago"] or "Efectivo").split(" - ")[0]
+        if metodo_base == "Efectivo":
+            total += r["valor"] or 0
+    return total
+
+
+# ─── Cuadre de caja (conteo físico real) ──────────────────────────
+# Antes /caja solo mostraba lo que el sistema *dice* que debería haber
+# -- un reporte, no un cuadre real. Esto agrega el paso que falta: una
+# base inicial de efectivo (con qué se abrió el día) más un conteo
+# físico real al cerrar, comparados para mostrar si hay descuadre.
+@app.route("/caja/cerrar", methods=["GET", "POST"])
+@login_required
+def cerrar_caja():
+    fecha = request.values.get("fecha") or get_colombia_time().strftime("%Y-%m-%d")
+    conn = get_db()
+
+    existente = conn.execute("SELECT * FROM cierres_caja WHERE fecha=?", (fecha,)).fetchone()
+
+    if request.method == "POST":
+
+        def _a_numero(campo):
+            crudo = str(request.form.get(campo, "0"))
+            limpio = crudo.replace("$", "").replace(".", "").replace(",", "").strip()
+            try:
+                return float(limpio) if limpio else 0.0
+            except ValueError:
+                return 0.0
+
+        base_inicial = _a_numero("base_inicial")
+        efectivo_contado = _a_numero("efectivo_contado")
+        observaciones = request.form.get("observaciones", "").strip()
+
+        # El "esperado" SIEMPRE se recalcula del lado del servidor a
+        # partir de la base ingresada y las ventas reales del día --
+        # nunca se confía en un valor calculado en el navegador, para
+        # que nadie pueda manipular el cuadre editando la página.
+        efectivo_ventas = _efectivo_ventas_dia(conn, fecha)
+        efectivo_esperado = base_inicial + efectivo_ventas
+        diferencia = efectivo_contado - efectivo_esperado
+        ahora_str = get_colombia_time().strftime("%Y-%m-%d %H:%M:%S")
+
+        valor_anterior = None
+        if existente:
+            valor_anterior = (
+                f"base=${existente['base_inicial']:,.0f}, "
+                f"esperado=${existente['efectivo_esperado']:,.0f}, "
+                f"contado=${existente['efectivo_contado']:,.0f}, "
+                f"diferencia=${existente['diferencia']:,.0f}"
+            )
+
+        conn.execute("""
+            INSERT INTO cierres_caja
+                (fecha, base_inicial, efectivo_esperado, efectivo_contado, diferencia, usuario, fecha_hora, observaciones)
+            VALUES (?,?,?,?,?,?,?,?)
+            ON CONFLICT(fecha) DO UPDATE SET
+                base_inicial=excluded.base_inicial,
+                efectivo_esperado=excluded.efectivo_esperado,
+                efectivo_contado=excluded.efectivo_contado,
+                diferencia=excluded.diferencia,
+                usuario=excluded.usuario,
+                fecha_hora=excluded.fecha_hora,
+                observaciones=excluded.observaciones
+        """, (fecha, base_inicial, efectivo_esperado, efectivo_contado, diferencia,
+              session.get("usuario"), ahora_str, observaciones))
+
+        registrar_auditoria(
+            conn,
+            accion="recerrar_caja" if existente else "cerrar_caja",
+            tabla_afectada="cierres_caja",
+            registro_id=fecha,
+            valor_anterior=valor_anterior,
+            valor_nuevo=(
+                f"base=${base_inicial:,.0f}, esperado=${efectivo_esperado:,.0f}, "
+                f"contado=${efectivo_contado:,.0f}, diferencia=${diferencia:,.0f}"
+            ),
+            motivo=observaciones or None,
+        )
+        conn.commit()
+        conn.close()
+
+        diferencia_fmt = "{:,.0f}".format(abs(diferencia)).replace(",", ".")
+        if diferencia == 0:
+            flash(f"Caja del {fecha} cuadrada exactamente. Sin diferencia.")
+        elif diferencia > 0:
+            flash(f"Caja del {fecha} cerrada: sobran ${diferencia_fmt} sobre lo esperado.", "error")
+        else:
+            flash(f"Caja del {fecha} cerrada: faltan ${diferencia_fmt} sobre lo esperado.", "error")
+
+        return redirect(url_for("cerrar_caja", fecha=fecha))
+
+    # GET: mostramos lo necesario para hacer el cuadre (o el que ya
+    # quedó guardado para esta fecha, si ya se cerró).
+    efectivo_ventas = _efectivo_ventas_dia(conn, fecha)
+
+    # Sugerimos como base inicial lo que quedó contado en el cierre
+    # anterior más reciente -- para no tener que volver a escribirlo a
+    # mano cada día si el efectivo se deja guardado en la caja.
+    anterior = conn.execute("""
+        SELECT efectivo_contado FROM cierres_caja
+        WHERE fecha < ? ORDER BY fecha DESC LIMIT 1
+    """, (fecha,)).fetchone()
+    base_sugerida = anterior["efectivo_contado"] if anterior else 0
+
+    conn.close()
+    return render_template(
+        "cierre_caja.html",
+        fecha=fecha,
+        existente=existente,
+        efectivo_ventas=int(efectivo_ventas),
+        base_sugerida=int(base_sugerida),
+    )
+
+
+# ─── PDF de tickets del día ───────────────────────────────────────
+# El cliente se lleva su tiquete de entrada y su tiquete de salida en
+# papel, pero el parqueadero no se quedaba con ninguna copia. Esta
+# ruta arma UN SOLO PDF con una copia fiel de cada tiquete (entradas Y
+# salidas) generado en un día, agrupados por vehículo, para que quede
+# un respaldo físico/archivable de todo lo que se entregó ese día.
+#
+# Ojo: el contenido/orden de cada tiquete dibujado aquí debe reflejar
+# lo mismo que templates/ticket.html (la vista en pantalla) y
+# construirBytesTicket() (la impresión térmica real). Si cambias el
+# formato del tiquete en esos dos lugares, revisa también
+# _dibujar_ticket_pdf() para que las tres versiones no queden
+# desincronizadas.
+def _dibujar_ticket_pdf(pdf, tipo, reg):
+    """
+    Dibuja un tiquete (entrada o salida) dentro del PDF, en la posición
+    Y actual, imitando el mismo contenido que templates/ticket.html.
+    Agrega una página nueva si no queda espacio suficiente.
+    """
+    ancho = 76          # mm -- simula el ancho del rollo térmico (80mm)
+    margen_int = 3
+    ancho_util = ancho - 2 * margen_int
+
+    alto_estimado = 66 if tipo == "salida" else 60
+    if pdf.get_y() + alto_estimado > pdf.h - pdf.b_margin:
+        pdf.add_page()
+
+    x0 = (pdf.w - ancho) / 2
+    y0 = pdf.get_y()
+    x = x0 + margen_int
+
+    def centrado(texto, alto=4.6, negrita=False, tam=9):
+        pdf.set_font("Courier", "B" if negrita else "", tam)
+        pdf.set_xy(x, pdf.get_y())
+        pdf.cell(ancho_util, alto, texto, align="C", new_x="LMARGIN", new_y="NEXT")
+
+    def dos_col(izq, der, alto=4.6, tam=8):
+        pdf.set_font("Courier", "", tam)
+        mitad = ancho_util / 2
+        y = pdf.get_y()
+        pdf.set_xy(x, y)
+        pdf.cell(mitad, alto, izq, align="L")
+        pdf.set_xy(x + mitad, y)
+        pdf.cell(mitad, alto, der, align="R", new_x="LMARGIN", new_y="NEXT")
+
+    def linea_txt(texto, alto=4.6, tam=8, negrita=False):
+        pdf.set_font("Courier", "B" if negrita else "", tam)
+        pdf.set_xy(x, pdf.get_y())
+        pdf.cell(ancho_util, alto, texto, align="L", new_x="LMARGIN", new_y="NEXT")
+
+    def separador():
+        y = pdf.get_y() + 1
+        pdf.dashed_line(x, y, x + ancho_util, y, dash_length=1, space_length=1)
+        pdf.set_y(y + 1.5)
+
+    pdf.set_y(y0 + 2)
+    centrado("PARQUEADERO EL PUENTE", negrita=True, tam=10)
+    centrado("Cra 4 # 5-26 - Tel: 3152775288", tam=7)
+    centrado("Horario: 7:00am - 6:30pm", tam=7)
+    separador()
+
+    dos_col(f"Ticket: {reg['ticket_num']:05d}", tipo.upper())
+
+    pdf.set_y(pdf.get_y() + 0.5)
+    centrado(reg["placa"] or "", negrita=True, tam=15)
+    pdf.set_y(pdf.get_y() + 0.5)
+    separador()
+
+    dos_col(f"Tipo: {(reg['tipo'] or '').capitalize()}", f"Marca: {reg['marca'] or '---'}")
+
+    if tipo == "salida":
+        tiempo_str = _tiempo_str_reg(reg)
+        linea_txt(f"Entrada: {reg['hora_entrada'] or ''}")
+        linea_txt(f"Salida: {reg['hora_salida'] or ''}")
+        linea_txt(f"Tiempo: {tiempo_str}")
+        separador()
+        centrado("TOTAL A PAGAR", negrita=True, tam=9)
+        valor_fmt = "${:,.0f}".format(reg["valor"] or 0).replace(",", ".")
+        centrado(valor_fmt, negrita=True, tam=13)
+    else:
+        hora_entrada = reg["hora_entrada"] or ""
+        fecha_ent = hora_entrada.split(" ")[0] if hora_entrada else ""
+        hora_ent = hora_entrada.split(" ")[1][:5] if " " in hora_entrada else ""
+        linea_txt(f"Fecha: {fecha_ent}   Hora: {hora_ent}")
+        separador()
+        if (reg["tipo"] or "").lower() == "carro":
+            dos_col("Primera hora:", "$4.000")
+            dos_col("Fracción adicional:", "$3.500")
+            dos_col("Día completo:", "$14.000")
+        else:
+            dos_col("Hora o fracción:", "$2.500")
+            dos_col("Día completo:", "$7.000")
+
+    separador()
+    if tipo == "entrada":
+        linea_txt("Conserve este tiquete para su salida.", tam=7)
+    linea_txt(f"Póliza Seguros Mundial {POLIZA_NUM}.", tam=7)
+
+    # El pago solo existe (y se puede anular) en el tiquete de salida --
+    # el de entrada es previo a cualquier cobro, así que la marca de
+    # anulado solo aplica ahí.
+    if tipo == "salida" and reg["anulado"]:
+        pdf.set_y(pdf.get_y() + 0.5)
+        centrado("** PAGO ANULADO **", negrita=True, tam=8)
+
+    y_final = pdf.get_y() + 2
+    pdf.rect(x0, y0, ancho, y_final - y0)
+    pdf.set_y(y_final + 4)
+
+
+@app.route("/tickets_dia_pdf")
+@login_required
+def tickets_dia_pdf():
+    fecha = request.args.get("fecha") or get_colombia_time().strftime("%Y-%m-%d")
+
+    conn = get_db()
+    regs = conn.execute("""
+        SELECT * FROM parqueadero
+        WHERE date(hora_entrada) = ? OR date(hora_salida) = ?
+        ORDER BY hora_entrada
+    """, (fecha, fecha)).fetchall()
+    conn.close()
+
+    # Armamos la lista de eventos (una entrada y/o una salida por cada
+    # vehículo, si ocurrieron ese día), ya en orden: la entrada de un
+    # vehículo siempre queda antes que su salida, así que agrupados por
+    # vehículo salen naturalmente uno al lado del otro.
+    eventos = []
+    for r in regs:
+        if r["hora_entrada"] and r["hora_entrada"].split(" ")[0] == fecha:
+            eventos.append(("entrada", r))
+        if r["hora_salida"] and r["hora_salida"].split(" ")[0] == fecha:
+            eventos.append(("salida", r))
+
+    if not eventos:
+        flash(f"No se encontraron tiquetes generados el {fecha}.", "error")
+        return redirect(url_for("caja"))
+
+    pdf = FPDF(orientation="P", unit="mm", format="A4")
+    pdf.set_auto_page_break(auto=False)
+    pdf.set_margins(10, 10, 10)
+    pdf.add_page()
+    pdf.set_title(f"Tiquetes del {fecha} - Parqueadero El Puente")
+
+    for tipo, reg in eventos:
+        _dibujar_ticket_pdf(pdf, tipo, reg)
+
+    pdf_bytes = bytes(pdf.output())
+    return send_file(
+        BytesIO(pdf_bytes),
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=f"tiquetes_{fecha}.pdf",
+    )
+
+
 # ─── Mensualidades ────────────────────────────────────────────────
 @app.route("/mensualidades", methods=["GET", "POST"])
 @login_required
@@ -1156,7 +1479,63 @@ def cargar_excel_mensualidades():
         mensaje += f" {len(errores)} fila(s) con problemas: " + " | ".join(errores[:5])
 
     return redirect(url_for("mensualidades", resultado=mensaje))
-    
+
+
+# ─── Excel de clientes (CRM) ───────────────────────────────────────
+# Base simple de clientes para que Wilmer pueda hacer su propio
+# seguimiento/CRM: placa, teléfono, si es Mensualidad o Diario, y si
+# es mensualidad, cuándo se le vence. Junta dos fuentes:
+#   - mensualidades: todos los clientes de mensualidad (con su fecha
+#     de vencimiento = fecha_fin).
+#   - clientes_frecuentes: clientes de a diario de los que ya se tiene
+#     el celular guardado (se excluyen los que ya salieron como
+#     mensualidad, para no repetir la misma placa dos veces).
+@app.route("/mensualidades/excel_clientes")
+@login_required
+@admin_required
+def excel_clientes_crm():
+    conn = get_db()
+    mensuales = conn.execute(
+        "SELECT placa, telefono, fecha_fin FROM mensualidades ORDER BY placa"
+    ).fetchall()
+    placas_mensuales = {m["placa"] for m in mensuales}
+
+    frecuentes = conn.execute(
+        "SELECT placa, celular FROM clientes_frecuentes ORDER BY placa"
+    ).fetchall()
+    conn.close()
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Clientes"
+
+    encabezados = ["Placa", "Telefono", "Tipo", "Vencimiento"]
+    ws.append(encabezados)
+
+    for m in mensuales:
+        ws.append([m["placa"], m["telefono"] or "", "Mensualidad", m["fecha_fin"] or ""])
+
+    for f in frecuentes:
+        if f["placa"] in placas_mensuales:
+            continue
+        ws.append([f["placa"], f["celular"] or "", "Diario", ""])
+
+    for idx, encabezado in enumerate(encabezados, start=1):
+        letra = ws.cell(row=1, column=idx).column_letter
+        ws.column_dimensions[letra].width = max(16, len(encabezado) + 2)
+
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    fecha_hoy = get_colombia_time().strftime("%Y-%m-%d")
+    return send_file(
+        buf,
+        as_attachment=True,
+        download_name=f"base_clientes_{fecha_hoy}.xlsx",
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+
 # ─── Tarifas (solo admin) ─────────────────────────────────────────
 @app.route("/tarifas", methods=["GET","POST"])
 @login_required
