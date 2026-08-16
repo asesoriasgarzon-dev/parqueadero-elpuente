@@ -361,63 +361,254 @@ def buscar_placa():
     return jsonify({"status": "nuevo", "mensualidad": mensualidad_info})
 
 # ─── Salida ──────────────────────────────────────────────────────
-@app.route("/salida", methods=["GET","POST"])
+@app.route("/salida", methods=["GET", "POST"])
 @login_required
 def salida_form():
-    placa = request.args.get("placa","").strip().upper()
+
+    # ============================================================
+    # VARIABLES INICIALES
+    # ============================================================
+
+    placa = request.args.get("placa", "").strip().upper()
+
     reg = None
     valor_sugerido = 0
     tiempo_str = ""
+
+    # ============================================================
+    # CONSULTA DE VEHÍCULO PARA MOSTRAR LA SALIDA
+    # ============================================================
+
     if placa:
+
         conn = get_db()
-        reg = conn.execute("SELECT * FROM parqueadero WHERE placa=? AND hora_salida IS NULL ORDER BY id DESC LIMIT 1", (placa,)).fetchone()
+
+        reg = conn.execute("""
+            SELECT *
+            FROM parqueadero
+            WHERE placa = ?
+              AND hora_salida IS NULL
+            ORDER BY id DESC
+            LIMIT 1
+        """, (placa,)).fetchone()
+
         conn.close()
+
         if reg:
-            # 1. Convertimos la hora de entrada y le asignamos la zona horaria de Bogotá
-            entrada_dt = datetime.strptime(reg["hora_entrada"], "%Y-%m-%d %H:%M:%S")
-            tz = pytz.timezone('America/Bogota')
+
+            # ----------------------------------------------------
+            # Convertir entrada a hora Colombia
+            # ----------------------------------------------------
+
+            entrada_dt = datetime.strptime(
+                reg["hora_entrada"],
+                "%Y-%m-%d %H:%M:%S"
+            )
+
+            tz = pytz.timezone("America/Bogota")
+
             entrada_dt = tz.localize(entrada_dt)
-            
-            # 2. Obtenemos la hora actual de Colombia
+
+            # ----------------------------------------------------
+            # Hora actual Colombia
+            # ----------------------------------------------------
+
             ahora_co = get_colombia_time()
-            
-            # 3. Calculamos la duración real (Colombia vs Colombia)
+
+            # ----------------------------------------------------
+            # Calcular duración real
+            # ----------------------------------------------------
+
             dur = ahora_co - entrada_dt
-            mins = int(max(0, dur.total_seconds() // 60))
-            
+
+            mins = int(
+                max(
+                    0,
+                    dur.total_seconds() // 60
+                )
+            )
+
             h, m = divmod(mins, 60)
+
             tiempo_str = f"{h}h {m}m"
+
+            # ----------------------------------------------------
+            # Calcular valor según tarifas vigentes
+            # ----------------------------------------------------
+
             tarifas = get_tarifas()
-            valor_sugerido = int(calcular_valor(reg["tipo"], mins, tarifas))
-            
+
+            valor_sugerido = int(
+                calcular_valor(
+                    reg["tipo"],
+                    mins,
+                    tarifas
+                )
+            )
+
+
+    # ============================================================
+    # REGISTRAR SALIDA
+    # ============================================================
+
     if request.method == "POST":
-        placa = request.form.get("placa","").strip().upper()
-        valor = request.form.get("valor", "0").replace(",","").strip()
-        metodo = request.form.get("metodo_pago", "Efectivo")
-        convenio = request.form.get("convenio", "").strip()
-        
+
+        placa = request.form.get(
+            "placa",
+            ""
+        ).strip().upper()
+
+        valor_raw = request.form.get(
+            "valor",
+            "0"
+        ).strip()
+
+        metodo = request.form.get(
+            "metodo_pago",
+            "Efectivo"
+        ).strip()
+
+        convenio = request.form.get(
+            "convenio",
+            ""
+        ).strip()
+
+
+        # --------------------------------------------------------
+        # Convertir valor recibido a número
+        # --------------------------------------------------------
+
         try:
-            valor_pago = float(valor)
-        except ValueError:
+
+            valor_limpio = (
+                str(valor_raw)
+                .replace("$", "")
+                .replace(".", "")
+                .replace(",", "")
+                .strip()
+            )
+
+            valor_pago = int(
+                float(valor_limpio)
+            )
+
+        except (ValueError, TypeError):
+
             valor_pago = 0
-            
-        # 4. Usamos la hora de Colombia para la salida final
-        ahora = get_colombia_time().strftime("%Y-%m-%d %H:%M:%S")
-        
+
+
+        # --------------------------------------------------------
+        # Buscar nuevamente el vehículo
+        #
+        # IMPORTANTE:
+        # No usamos el registro obtenido en GET.
+        # Volvemos a consultar la BD para asegurarnos de que
+        # el vehículo todavía esté dentro del parqueadero.
+        # --------------------------------------------------------
+
         conn = get_db()
-        reg2 = conn.execute("SELECT * FROM parqueadero WHERE placa=? AND hora_salida IS NULL ORDER BY id DESC LIMIT 1", (placa,)).fetchone()
-        
+
+        reg2 = conn.execute("""
+            SELECT *
+            FROM parqueadero
+            WHERE placa = ?
+              AND hora_salida IS NULL
+            ORDER BY id DESC
+            LIMIT 1
+        """, (placa,)).fetchone()
+
+
         if reg2:
-            conn.execute("UPDATE parqueadero SET hora_salida=?, valor=?, metodo_pago=?, cajero=? WHERE id=?",
-                         (ahora, valor_pago, f"{metodo}{' - '+convenio if convenio else ''}", session.get("usuario"), reg2["id"]))
+
+            # ----------------------------------------------------
+            # Hora oficial de salida Colombia
+            # ----------------------------------------------------
+
+            ahora = get_colombia_time().strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
+
+
+            # ----------------------------------------------------
+            # Construir método de pago + convenio
+            # ----------------------------------------------------
+
+            metodo_pago = metodo
+
+            if convenio:
+
+                metodo_pago = (
+                    f"{metodo} - {convenio}"
+                )
+
+
+            # ----------------------------------------------------
+            # Registrar salida
+            #
+            # valor = valor REAL cobrado al cliente.
+            #
+            # No recalculamos aquí el valor porque el cajero
+            # puede haber seleccionado:
+            #
+            # - Valor por tiempo
+            # - Tarifa de día
+            # - Un valor autorizado/manual
+            # ----------------------------------------------------
+
+            conn.execute("""
+                UPDATE parqueadero
+                SET
+                    hora_salida = ?,
+                    valor = ?,
+                    metodo_pago = ?,
+                    cajero = ?
+                WHERE id = ?
+            """, (
+                ahora,
+                valor_pago,
+                metodo_pago,
+                session.get("usuario"),
+                reg2["id"]
+            ))
+
+
             conn.commit()
+
             ticket = reg2["ticket_num"]
+
             conn.close()
-            return redirect(url_for("ticket_salida", ticket=ticket))
+
+
+            # ----------------------------------------------------
+            # Generar ticket de salida
+            # ----------------------------------------------------
+
+            return redirect(
+                url_for(
+                    "ticket_salida",
+                    ticket=ticket
+                )
+            )
+
+
+        # --------------------------------------------------------
+        # Si el vehículo ya no está disponible
+        # --------------------------------------------------------
+
         conn.close()
-        
-    return render_template("salida.html", placa=placa, reg=reg,
-                           valor_sugerido=valor_sugerido, tiempo_str=tiempo_str)
+
+
+    # ============================================================
+    # MOSTRAR FORMULARIO
+    # ============================================================
+
+    return render_template(
+        "salida.html",
+        placa=placa,
+        reg=reg,
+        valor_sugerido=valor_sugerido,
+        tiempo_str=tiempo_str
+    )
 
 # ─── Tickets (vista imprimible) ───────────────────────────────────
 @app.route("/ticket/entrada/<int:ticket>")
