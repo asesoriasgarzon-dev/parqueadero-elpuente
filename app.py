@@ -139,6 +139,24 @@ def init_db():
         minutos_cortesia INTEGER DEFAULT 5
     )""")
 
+    # 7. Tabla Auditoría (trazabilidad de cambios sensibles)
+    # Registra quién hizo qué, cuándo, sobre qué registro, y los valores
+    # antes/después. No reemplaza el histórico de `parqueadero`, lo
+    # complementa para acciones que MODIFICAN o BORRAN algo ya existente
+    # (anulaciones, cambios de tarifa, reset de clave, borrado de
+    # mensualidades) -- ahí es donde antes no quedaba ningún rastro.
+    c.execute("""CREATE TABLE IF NOT EXISTS auditoria (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        fecha_hora TEXT,
+        usuario TEXT,
+        accion TEXT,
+        tabla_afectada TEXT,
+        registro_id TEXT,
+        valor_anterior TEXT,
+        valor_nuevo TEXT,
+        motivo TEXT
+    )""")
+
     # Datos iniciales (Usuarios y Tarifas 2026)
     # NOTA: en instalaciones ya existentes, INSERT OR IGNORE no toca las filas
     # que ya están ahí, así que esto no afecta contraseñas ya migradas a hash.
@@ -273,6 +291,36 @@ def get_consecutivo(conn):
     res = conn.execute("SELECT numero FROM consecutivo WHERE id = 1").fetchone()
     return res["numero"]
 
+def registrar_auditoria(conn, accion, tabla_afectada, registro_id,
+                         valor_anterior=None, valor_nuevo=None, motivo=None):
+    """
+    Deja un rastro permanente de una acción sensible: quién, qué, cuándo,
+    sobre qué registro, y los valores antes/después.
+
+    Se inserta con el mismo `conn` (misma conexión/transacción) que el
+    cambio que audita, y el llamador es quien hace el commit() -- así, si
+    el cambio se cancela (rollback), el registro de auditoría se cancela
+    con él y nunca queda un rastro de algo que en realidad no ocurrió.
+
+    Nunca se le pasa contraseñas ni datos de tarjetas/pagos sensibles a
+    valor_anterior/valor_nuevo -- solo lo mínimo para poder reconstruir
+    qué cambió.
+    """
+    conn.execute("""
+        INSERT INTO auditoria
+            (fecha_hora, usuario, accion, tabla_afectada, registro_id, valor_anterior, valor_nuevo, motivo)
+        VALUES (?,?,?,?,?,?,?,?)
+    """, (
+        get_colombia_time().strftime("%Y-%m-%d %H:%M:%S"),
+        session.get("usuario", "sistema"),
+        accion,
+        tabla_afectada,
+        str(registro_id) if registro_id is not None else None,
+        str(valor_anterior) if valor_anterior is not None else None,
+        str(valor_nuevo) if valor_nuevo is not None else None,
+        motivo,
+    ))
+
 def _normalizar_fecha_excel(valor):
     """Convierte un valor de celda de Excel (fecha o texto) a 'AAAA-MM-DD'."""
     if valor is None or valor == "":
@@ -342,7 +390,10 @@ def inicio():
    # CAMBIO AQUÍ: Usamos get_colombia_time() en lugar de datetime.now()
     ahora_co = get_colombia_time() 
     hoy = ahora_co.strftime("%Y-%m-%d")
-    caja_hoy = conn.execute("SELECT COALESCE(SUM(valor),0) as t FROM parqueadero WHERE date(hora_salida)=?", (hoy,)).fetchone()["t"]
+    caja_hoy = conn.execute("""
+        SELECT COALESCE(SUM(valor),0) as t FROM parqueadero
+        WHERE date(hora_salida)=? AND (anulado = 0 OR anulado IS NULL)
+    """, (hoy,)).fetchone()["t"]
     conn.close()
     return render_template("inicio.html", activos=activos, caja_hoy=int(caja_hoy))
 
@@ -816,9 +867,13 @@ def caja():
     
     conn = get_db()
     # Cambiamos la consulta SQL para que use un rango (BETWEEN)
+    # Se excluyen los pagos anulados: un cobro anulado no es un ingreso
+    # real, no debe aparecer en el cierre de caja (sí sigue visible,
+    # completo, en el Histórico -- ese es el lugar para auditarlos).
     query = """
-        SELECT * FROM parqueadero 
-        WHERE date(hora_salida) BETWEEN ? AND ? 
+        SELECT * FROM parqueadero
+        WHERE date(hora_salida) BETWEEN ? AND ?
+          AND (anulado = 0 OR anulado IS NULL)
         ORDER BY hora_salida DESC
     """
     regs = conn.execute(query, (fecha_inicio, fecha_fin)).fetchall()
@@ -867,16 +922,34 @@ def mensualidades():
         obs = request.form.get("observaciones", "").strip()
 
         check = conn.execute("SELECT id FROM mensualidades WHERE placa = ?", (placa,)).fetchone()
-        
+
         if check:
-            conn.execute("""UPDATE mensualidades SET 
-                nombre=?, telefono=?, modelo=?, color=?, tipo=?, 
-                fecha_inicio=?, fecha_fin=?, estado=?, observaciones=? 
+            anterior = conn.execute("SELECT estado, fecha_fin FROM mensualidades WHERE id=?", (check["id"],)).fetchone()
+            conn.execute("""UPDATE mensualidades SET
+                nombre=?, telefono=?, modelo=?, color=?, tipo=?,
+                fecha_inicio=?, fecha_fin=?, estado=?, observaciones=?
                 WHERE placa=?""", (nombre, tel, mod, col_v, tipo, fi, ff, est, obs, placa))
+            registrar_auditoria(
+                conn,
+                accion="editar_mensualidad",
+                tabla_afectada="mensualidades",
+                registro_id=check["id"],
+                valor_anterior=f"estado={anterior['estado']}, fecha_fin={anterior['fecha_fin']}",
+                valor_nuevo=f"estado={est}, fecha_fin={ff}",
+                motivo=f"placa: {placa}",
+            )
         else:
-            conn.execute("""INSERT INTO mensualidades 
-                (nombre, placa, telefono, modelo, color, tipo, fecha_inicio, fecha_fin, estado, observaciones) 
+            cur = conn.execute("""INSERT INTO mensualidades
+                (nombre, placa, telefono, modelo, color, tipo, fecha_inicio, fecha_fin, estado, observaciones)
                 VALUES (?,?,?,?,?,?,?,?,?,?)""", (nombre, placa, tel, mod, col_v, tipo, fi, ff, est, obs))
+            registrar_auditoria(
+                conn,
+                accion="crear_mensualidad",
+                tabla_afectada="mensualidades",
+                registro_id=cur.lastrowid,
+                valor_nuevo=f"placa={placa}, nombre={nombre}, estado={est}",
+                motivo=None,
+            )
         conn.commit()
         return redirect(url_for('mensualidades'))
 
@@ -906,7 +979,25 @@ def mensualidades():
 @admin_required
 def eliminar_mensualidad(id):
     conn = get_db()
+
+    # Capturamos los datos antes de borrar -- una vez hecho el DELETE no
+    # hay forma de recuperarlos, así que esta es la única oportunidad de
+    # dejar un rastro de qué se eliminó.
+    reg = conn.execute("SELECT nombre, placa, estado FROM mensualidades WHERE id=?", (id,)).fetchone()
+
     conn.execute("DELETE FROM mensualidades WHERE id = ?", (id,))
+
+    if reg:
+        registrar_auditoria(
+            conn,
+            accion="eliminar_mensualidad",
+            tabla_afectada="mensualidades",
+            registro_id=id,
+            valor_anterior=f"nombre={reg['nombre']}, placa={reg['placa']}, estado={reg['estado']}",
+            valor_nuevo="eliminado",
+            motivo=None,
+        )
+
     conn.commit()
     conn.close()
     return redirect(url_for('mensualidades'))
@@ -1020,11 +1111,29 @@ def tarifas():
     conn = get_db()
     if request.method == "POST":
         for tipo in ["carro", "moto"]:
+            anterior = conn.execute(
+                "SELECT valor_hora, valor_dia, minutos_cortesia FROM tarifas WHERE tipo=?", (tipo,)
+            ).fetchone()
+
             vh = float(request.form.get(f"vh_{tipo}", 0))
             vd = float(request.form.get(f"vd_{tipo}", 0))
             mc = int(request.form.get(f"mc_{tipo}", 5))
             conn.execute("UPDATE tarifas SET valor_hora=?, valor_dia=?, minutos_cortesia=? WHERE tipo=?",
                          (vh, vd, mc, tipo))
+
+            # Solo se audita si de verdad cambió algo (evita ruido si el
+            # admin solo abrió el formulario y le dio guardar sin tocar nada)
+            if anterior and (anterior["valor_hora"] != vh or anterior["valor_dia"] != vd
+                              or anterior["minutos_cortesia"] != mc):
+                registrar_auditoria(
+                    conn,
+                    accion="cambiar_tarifa",
+                    tabla_afectada="tarifas",
+                    registro_id=tipo,
+                    valor_anterior=f"hora=${anterior['valor_hora']:,.0f}, dia=${anterior['valor_dia']:,.0f}, cortesia={anterior['minutos_cortesia']}min",
+                    valor_nuevo=f"hora=${vh:,.0f}, dia=${vd:,.0f}, cortesia={mc}min",
+                    motivo=None,
+                )
         conn.commit()
     regs = conn.execute("SELECT * FROM tarifas ORDER BY tipo").fetchall()
     conn.close()
@@ -1149,6 +1258,23 @@ def perfil():
             
     return render_template("perfil.html", mensaje=mensaje)
 
+# ─── Auditoría (Solo Admin) ───────────────────────────────────────
+@app.route("/auditoria")
+@login_required
+@admin_required
+def auditoria():
+    conn = get_db()
+    accion = request.args.get("accion", "").strip()
+    if accion:
+        regs = conn.execute("""
+            SELECT * FROM auditoria WHERE accion = ? ORDER BY id DESC LIMIT 300
+        """, (accion,)).fetchall()
+    else:
+        regs = conn.execute("SELECT * FROM auditoria ORDER BY id DESC LIMIT 300").fetchall()
+    acciones = conn.execute("SELECT DISTINCT accion FROM auditoria ORDER BY accion").fetchall()
+    conn.close()
+    return render_template("auditoria.html", regs=regs, acciones=acciones, accion_filtro=accion)
+
 # ─── Gestión de Usuarios (Solo Admin) ────────────────────────────
 @app.route("/usuarios")
 @login_required
@@ -1164,9 +1290,24 @@ def gestion_usuarios():
 @admin_required
 def reset_password(id):
     conn = get_db()
+    objetivo = conn.execute("SELECT username FROM usuarios WHERE id=?", (id,)).fetchone()
+
     # Reseteo a clave genérica para que el operador la cambie luego en su perfil
     conn.execute("UPDATE usuarios SET password=? WHERE id=?",
                  (generate_password_hash("cambiar123"), id))
+
+    if objetivo:
+        # No se audita ninguna contraseña (ni la vieja ni la nueva) --
+        # solo que la acción ocurrió y sobre qué usuario.
+        registrar_auditoria(
+            conn,
+            accion="reset_password",
+            tabla_afectada="usuarios",
+            registro_id=id,
+            valor_nuevo="clave reseteada a valor genérico",
+            motivo=f"usuario objetivo: {objetivo['username']}",
+        )
+
     conn.commit()
     conn.close()
     return redirect(url_for('gestion_usuarios'))
@@ -1186,36 +1327,37 @@ def estadisticas():
     ultimo_dia = calendar.monthrange(ahora.year, ahora.month)[1]
     dias_restantes = ultimo_dia - ahora.day
     
-    # Ingresos últimos 7 días
+    # Ingresos últimos 7 días (se excluyen pagos anulados -- no son ingreso real)
     query_semana = """
         SELECT date(hora_salida) as fecha, SUM(valor) as total
         FROM parqueadero
-        WHERE hora_salida IS NOT NULL 
+        WHERE hora_salida IS NOT NULL
         AND date(hora_salida) > date('now', '-7 days')
+        AND (anulado = 0 OR anulado IS NULL)
         GROUP BY date(hora_salida)
         ORDER BY fecha ASC
     """
     datos = conn.execute(query_semana).fetchall()
-    
-    # Ingresos por tipo
+
+    # Ingresos por tipo (idem, sin pagos anulados)
     por_tipo = conn.execute("""
-        SELECT tipo, SUM(valor) as total 
-        FROM parqueadero 
+        SELECT tipo, SUM(valor) as total
+        FROM parqueadero
         WHERE hora_salida IS NOT NULL
+        AND (anulado = 0 OR anulado IS NULL)
         GROUP BY tipo
     """).fetchall()
     conn.close()
-    
+
     labels = [d['fecha'] for d in datos]
     valores = [d['total'] for d in datos]
-    
+
     # 3. PASAR dias_restantes AL TEMPLATE
-    return render_template("estadisticas.html", 
-                           labels=labels, 
-                           valores=valores, 
-                           por_tipo=por_tipo, 
-                           dias_restantes=dias_restantes)    
-    return render_template("estadisticas.html", labels=labels, valores=valores, por_tipo=por_tipo)
+    return render_template("estadisticas.html",
+                           labels=labels,
+                           valores=valores,
+                           por_tipo=por_tipo,
+                           dias_restantes=dias_restantes)
 
 # ─── Limpiar Pruebas (Solo Admin, y solo en entorno de desarrollo) ─
 # Borra TODO el histórico de parqueadero. Se bloquea por completo a
@@ -1241,11 +1383,13 @@ def imprimir_caja():
     fecha_hoy = ahora_co.strftime("%Y-%m-%d")
     
     conn = get_db()
-    # 1. Obtenemos todos los registros que salieron hoy
+    # 1. Obtenemos todos los registros que salieron hoy (sin anulados:
+    #    un pago anulado no es un ingreso real, no debe sumar en el cierre)
     regs = conn.execute("""
-        SELECT metodo_pago, valor, tipo 
-        FROM parqueadero 
+        SELECT metodo_pago, valor, tipo
+        FROM parqueadero
         WHERE date(hora_salida) = ?
+          AND (anulado = 0 OR anulado IS NULL)
     """, (fecha_hoy,)).fetchall()
     
     # 2. Calculamos totales y desglose
@@ -1296,9 +1440,13 @@ def anular_pago(id):
 
     conn = get_db()
 
-    # Verificamos que exista y obtenemos estado de anulación
+    # Verificamos que exista y obtenemos estado de anulación + el valor
+    # actual (lo necesitamos para el registro de auditoría, y sobre todo
+    # para NO perderlo: antes esta ruta hacía "valor = 0" y el cobro
+    # original quedaba destruido para siempre, sin forma de saber cuánto
+    # se había cobrado antes de la anulación).
     reg = conn.execute("""
-        SELECT id, anulado
+        SELECT id, anulado, valor
         FROM parqueadero
         WHERE id = ?
     """, (id,)).fetchone()
@@ -1308,22 +1456,39 @@ def anular_pago(id):
         # Evitar doble anulación
         if reg["anulado"]:
             conn.close()
+            flash("Este pago ya estaba anulado.", "error")
             return redirect(url_for("historico"))
 
-        # Registrar anulación
+        valor_original = reg["valor"]
+
+        # Registrar anulación.
+        # IMPORTANTE: ya NO se pone "valor = 0". El cobro original se
+        # conserva intacto en el histórico; el flag `anulado` es lo que
+        # lo excluye de caja/estadísticas (ver esas rutas), y
+        # `valor_real` guarda lo que el admin indica que realmente se
+        # cobró (si acaso se cobró algo).
         conn.execute("""
-            UPDATE parqueadero 
-            SET 
+            UPDATE parqueadero
+            SET
                 anulado = 1,
                 motivo_anulacion = ?,
-                valor_real = ?,
-                valor = 0
+                valor_real = ?
             WHERE id = ?
         """, (
             motivo,
             valor_real,
             id
         ))
+
+        registrar_auditoria(
+            conn,
+            accion="anular_pago",
+            tabla_afectada="parqueadero",
+            registro_id=id,
+            valor_anterior=f"valor original: ${valor_original:,.0f}",
+            valor_nuevo=f"anulado; valor real indicado: ${valor_real:,.0f}",
+            motivo=motivo,
+        )
 
         conn.commit()
 
