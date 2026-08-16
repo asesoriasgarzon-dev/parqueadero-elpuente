@@ -1,111 +1,416 @@
 {% extends "base.html" %}
 {% block title %}Salida – El Puente{% endblock %}
 {% block content %}
+
 <div class="page-title">Registrar <span>Salida</span></div>
 
 {% if not reg %}
+
 <div class="card" style="max-width:400px">
+
   <form action="{{ url_for('salida_form') }}" method="GET" class="search-bar">
-    <input name="placa" class="form-control" placeholder="Ingrese placa..." style="text-transform:uppercase" autofocus>
-    <button type="submit" class="btn btn-danger">Buscar</button>
+
+    <input
+      name="placa"
+      class="form-control"
+      placeholder="Ingrese placa..."
+      style="text-transform:uppercase"
+      autofocus
+    >
+
+    <button type="submit" class="btn btn-danger">
+      Buscar
+    </button>
+
   </form>
+
 </div>
+
 {% else %}
+
 <div class="card" style="max-width:500px">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem">
+
+  <!-- ==========================================================
+       INFORMACIÓN DEL VEHÍCULO
+       ========================================================== -->
+
+  <div style="
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      margin-bottom:1.2rem">
+
     <div>
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:2rem;font-weight:900;color:var(--danger)">
+
+      <div style="
+          font-family:'Barlow Condensed',sans-serif;
+          font-size:2rem;
+          font-weight:900;
+          color:var(--danger)">
+
         {{ reg.placa }}
+
       </div>
-      <div style="color:var(--text2);font-size:.9rem">{{ reg.tipo|capitalize }} · {{ reg.marca }}</div>
+
+      <div style="
+          color:var(--text2);
+          font-size:.9rem">
+
+        {{ reg.tipo|capitalize }} · {{ reg.marca or '---' }}
+
+      </div>
+
     </div>
-    <div style="text-align:right;color:var(--text2);font-size:.85rem">
+
+    <div style="
+        text-align:right;
+        color:var(--text2);
+        font-size:.85rem">
+
       Entrada: {{ reg.hora_entrada }}
+
     </div>
+
   </div>
+
+
+  <!-- ==========================================================
+       VALOR CALCULADO EN TIEMPO REAL
+       ========================================================== -->
 
   <div class="valor-live" id="valorLive">
-    <div class="valor-tiempo" id="tiempoLive">{{ tiempo_str }}</div>
-    <div class="valor-num" id="valorNum">${{ "{:,}".format(valor_sugerido) }}</div>
-    <div style="color:var(--text2);font-size:.8rem">Valor sugerido por tiempo</div>
+
+    <div
+      class="valor-tiempo"
+      id="tiempoLive">
+
+      {{ tiempo_str }}
+
+    </div>
+
+    <div
+      class="valor-num"
+      id="valorNum">
+
+      ${{ "{:,}".format(valor_sugerido) }}
+
+    </div>
+
+    <div style="
+        color:var(--text2);
+        font-size:.8rem">
+
+      Valor sugerido por tiempo
+
+    </div>
+
   </div>
 
+
+  <!-- ==========================================================
+       FORMULARIO DE SALIDA
+       ========================================================== -->
+
   <form method="POST">
-    <input type="hidden" name="placa" value="{{ reg.placa }}">
+
+    <input
+      type="hidden"
+      name="placa"
+      value="{{ reg.placa }}"
+    >
+
+
+    <!-- ========================================================
+         MÉTODO DE PAGO
+         ======================================================== -->
 
     <div class="form-group">
+
       <label>Método de pago</label>
-      <div class="metodo-grid" id="metodosGrid">
+
+      <div
+        class="metodo-grid"
+        id="metodosGrid">
+
         {% for m in ['Efectivo','Nequi','Daviplata','Transferencia'] %}
-        <label class="metodo-btn {% if m=='Efectivo' %}selected{% endif %}" id="lbl_{{ m }}">
-          <input type="radio" name="metodo_pago" value="{{ m }}" {% if m=='Efectivo' %}checked{% endif %}
-                 onchange="selectMetodo('{{ m }}')">
-          {% if m=='Efectivo' %}💵{% elif m=='Nequi' %}🟣{% elif m=='Daviplata' %}🔴{% else %}🏦{% endif %}
+
+        <label
+          class="metodo-btn {% if m=='Efectivo' %}selected{% endif %}"
+          id="lbl_{{ m }}">
+
+          <input
+            type="radio"
+            name="metodo_pago"
+            value="{{ m }}"
+            {% if m=='Efectivo' %}checked{% endif %}
+            onchange="selectMetodo('{{ m }}')"
+          >
+
+          {% if m=='Efectivo' %}
+            💵
+          {% elif m=='Nequi' %}
+            🟣
+          {% elif m=='Daviplata' %}
+            🔴
+          {% else %}
+            🏦
+          {% endif %}
+
           {{ m }}
+
         </label>
+
         {% endfor %}
+
       </div>
+
     </div>
 
+
+    <!-- ========================================================
+         CONVENIO / NOTA
+         ======================================================== -->
+
     <div class="form-group">
+
       <label>Convenio / Nota (opcional)</label>
-      <input name="convenio" class="form-control" placeholder="ej: Empresa XYZ, descuento...">
+
+      <input
+        name="convenio"
+        class="form-control"
+        placeholder="ej: Empresa XYZ, descuento..."
+      >
+
     </div>
+
+
+    <!-- ========================================================
+         VALOR A COBRAR
+         ======================================================== -->
 
     <div class="form-group">
+
       <label>Valor a cobrar *</label>
-      <input name="valor" id="valorInput" class="form-control"
-             value="{{ valor_sugerido }}"
-             style="font-size:1.4rem;font-weight:700;color:var(--accent);text-align:center">
+
+      <input
+        name="valor"
+        id="valorInput"
+        class="form-control"
+        value="{{ valor_sugerido }}"
+        style="
+          font-size:1.4rem;
+          font-weight:700;
+          color:var(--accent);
+          text-align:center"
+      >
+
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin-bottom:1rem">
-      <button type="button" class="btn btn-secondary"
-              onclick="document.getElementById('valorInput').value={{ valor_sugerido }}">
-        ⏱ Tiempo (${{ "{:,}".format(valor_sugerido) }})
+
+    <!-- ========================================================
+         BOTONES DE VALOR
+         ======================================================== -->
+
+    <div style="
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:.8rem;
+        margin-bottom:1rem">
+
+      <!--
+        Este botón toma el último valor calculado
+        por la actualización en tiempo real.
+      -->
+
+      <button
+        type="button"
+        class="btn btn-secondary"
+        onclick="usarValorTiempo()">
+
+        ⏱ Tiempo
+
       </button>
-      
-      <button type="button" class="btn btn-warn" onclick="fijarTarifaDia()">
+
+
+      <!--
+        Tarifa de día:
+        Carro = $14.000
+        Moto  = $7.000
+      -->
+
+      <button
+        type="button"
+        class="btn btn-warn"
+        onclick="fijarTarifaDia()">
+
         📅 Día
+
       </button>
+
     </div>
 
-    <button type="submit" class="btn btn-danger btn-block" style="font-size:1.1rem;padding:1rem">
+
+    <!-- ========================================================
+         CONFIRMAR SALIDA
+         ======================================================== -->
+
+    <button
+      type="submit"
+      class="btn btn-danger btn-block"
+      style="
+        font-size:1.1rem;
+        padding:1rem">
+
       ✓ Confirmar Salida
+
     </button>
-    <a href="{{ url_for('inicio') }}" class="btn btn-secondary btn-block" style="margin-top:.5rem">Cancelar</a>
+
+
+    <a
+      href="{{ url_for('inicio') }}"
+      class="btn btn-secondary btn-block"
+      style="margin-top:.5rem">
+
+      Cancelar
+
+    </a>
+
   </form>
+
 </div>
 
+
 <script>
+
+/* ==============================================================
+   MÉTODO DE PAGO
+   ============================================================== */
+
 function selectMetodo(m) {
-  document.querySelectorAll('.metodo-btn').forEach(el => el.classList.remove('selected'));
-  document.getElementById('lbl_' + m).classList.add('selected');
+
+  document
+    .querySelectorAll('.metodo-btn')
+    .forEach(el => el.classList.remove('selected'));
+
+  document
+    .getElementById('lbl_' + m)
+    .classList.add('selected');
+
 }
 
-// FUNCIÓN PARA CAMBIAR A TARIFA DE DÍA SEGÚN TIPO DE VEHÍCULO
+
+/* ==============================================================
+   USAR VALOR CALCULADO POR TIEMPO
+   ============================================================== */
+
+/*
+   Toma el valor que actualmente aparece en #valorNum.
+
+   Esto evita que el botón "Tiempo" utilice un valor antiguo
+   que quedó guardado cuando se abrió la página.
+*/
+
+function usarValorTiempo() {
+
+  const valorTexto =
+    document.getElementById('valorNum').textContent;
+
+  const valor = valorTexto
+    .replace('$', '')
+    .replace(/\./g, '')
+    .replace(/,/g, '')
+    .trim();
+
+  document.getElementById('valorInput').value = valor;
+
+}
+
+
+/* ==============================================================
+   TARIFA DE DÍA
+   ============================================================== */
+
+/*
+   Tarifas vigentes:
+
+   Carro = $14.000
+   Moto  = $7.000
+*/
+
 function fijarTarifaDia() {
-    const tipo = "{{ reg.tipo }}".toLowerCase();
-    const input = document.getElementById('valorInput');
-    
-    if (tipo === 'carro') {
-        input.value = 14000;
-    } else {
-        input.value = 7000;
-    }
+
+  const tipo =
+    "{{ reg.tipo }}".toLowerCase();
+
+  const input =
+    document.getElementById('valorInput');
+
+  if (tipo === 'carro') {
+
+    input.value = 14000;
+
+  } else {
+
+    input.value = 7000;
+
+  }
+
 }
 
-// Actualizar valor en tiempo real cada 30 segundos
+
+/* ==============================================================
+   ACTUALIZACIÓN DEL VALOR EN TIEMPO REAL
+   ============================================================== */
+
+/*
+   Se consulta la API cada 30 segundos.
+
+   Importante:
+   La actualización modifica solamente el valor mostrado
+   y el tiempo.
+
+   NO modifica automáticamente el campo "Valor a cobrar",
+   porque el cajero puede haber realizado un ajuste manual.
+*/
+
 setInterval(() => {
-  fetch(`/api/valor_estimado?placa={{ reg.placa }}`)
-    .then(r => r.json())
-    .then(d => {
-      if (!d.error) {
-        document.getElementById('tiempoLive').textContent = d.tiempo;
-        document.getElementById('valorNum').textContent = '$' + d.valor.toLocaleString('es-CO');
-      }
-    });
+
+  fetch(
+    `/api/valor_estimado?placa={{ reg.placa }}`
+  )
+
+  .then(r => r.json())
+
+  .then(d => {
+
+    if (!d.error) {
+
+      document
+        .getElementById('tiempoLive')
+        .textContent = d.tiempo;
+
+      document
+        .getElementById('valorNum')
+        .textContent =
+          '$' + d.valor.toLocaleString('es-CO');
+
+    }
+
+  })
+
+  .catch(error => {
+
+    console.error(
+      'Error actualizando valor:',
+      error
+    );
+
+  });
+
 }, 30000);
+
 </script>
+
 {% endif %}
+
 {% endblock %}
