@@ -1,23 +1,57 @@
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, send_file
-import sqlite3, os, math, shutil
+import sqlite3, os, math, shutil, secrets, hmac
 import pytz
 import calendar
 from datetime import datetime, timedelta
 from functools import wraps
 from io import BytesIO
 from openpyxl import Workbook, load_workbook
+from werkzeug.security import generate_password_hash, check_password_hash
+from flask_wtf import CSRFProtect
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 app = Flask(__name__)
-app.secret_key = "parqueadero_el_puente_2026"
+
+# ─── SECRET_KEY ──────────────────────────────────────────────────
+# Debe venir de una variable de entorno en producción (Railway).
+# Si no está definida, se genera una temporal SOLO para que la app
+# siga funcionando en desarrollo local — las sesiones se invalidan
+# en cada reinicio, así que en producción SIEMPRE hay que definirla.
+SECRET_KEY = os.environ.get("SECRET_KEY")
+if not SECRET_KEY:
+    SECRET_KEY = secrets.token_hex(32)
+    print("ADVERTENCIA: SECRET_KEY no está definida en variables de entorno. "
+          "Se generó una clave temporal solo para esta ejecución. "
+          "Configura SECRET_KEY en producción (Railway).")
+app.secret_key = SECRET_KEY
+
+# ─── Cookies de sesión más seguras ────────────────────────────────
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+# En Railway (donde existe /data) se sirve por HTTPS -> cookie "Secure".
+# En desarrollo local (HTTP) se deja en False para no romper el login.
+app.config["SESSION_COOKIE_SECURE"] = os.path.exists("/data")
+
+# ─── Protección CSRF global para todos los formularios POST ──────
+csrf = CSRFProtect(app)
+
+# ─── Límite de intentos de login (mitiga fuerza bruta) ────────────
+limiter = Limiter(get_remote_address, app=app, default_limits=[])
 
 POLIZA_NUM = "C-250004843"
 CERTIFICADO_NUM = "10402089"
 VIGENCIA_POLIZA = "Marzo 14 de 2026 a Marzo 14 de 2027"
 
-# ─── Clave del agente de impresión (cámbiala por algo único tuyo) ──
+# ─── Clave del agente de impresión ─────────────────────────────────
 # El agente que corre en el PC de la caseta usa esta misma clave
 # para poder consultar/marcar los tickets pendientes de imprimir.
-PRINTER_API_KEY = os.environ.get("PRINTER_API_KEY", "puente2026_imprimir")
+# Ya NO tiene un valor por defecto: si no está configurada, la API
+# de impresión queda deshabilitada (no expuesta con una clave conocida).
+PRINTER_API_KEY = os.environ.get("PRINTER_API_KEY")
+if not PRINTER_API_KEY:
+    print("ADVERTENCIA: PRINTER_API_KEY no está definida. "
+          "La impresión remota (agente local) quedará deshabilitada hasta que la configures.")
 
 def get_colombia_time():
     # Creamos la zona horaria de Bogotá
@@ -99,8 +133,12 @@ def init_db():
     )""")
 
     # Datos iniciales (Usuarios y Tarifas 2026)
-    c.execute("INSERT OR IGNORE INTO usuarios (username, password, rol) VALUES ('admin', 'admin123', 'admin')")
-    c.execute("INSERT OR IGNORE INTO usuarios (username, password, rol) VALUES ('operador', 'op123', 'operador')")
+    # NOTA: en instalaciones ya existentes, INSERT OR IGNORE no toca las filas
+    # que ya están ahí, así que esto no afecta contraseñas ya migradas a hash.
+    c.execute("INSERT OR IGNORE INTO usuarios (username, password, rol) VALUES ('admin', ?, 'admin')",
+              (generate_password_hash("admin123"),))
+    c.execute("INSERT OR IGNORE INTO usuarios (username, password, rol) VALUES ('operador', ?, 'operador')",
+              (generate_password_hash("op123"),))
     c.execute("INSERT OR IGNORE INTO tarifas (id, tipo, valor_hora, valor_dia, minutos_cortesia) VALUES (1, 'carro', 4000, 14000, 5)")
     c.execute("INSERT OR IGNORE INTO tarifas (id, tipo, valor_hora, valor_dia, minutos_cortesia) VALUES (2, 'moto', 2500, 7000, 5)")
     
@@ -230,29 +268,47 @@ def _normalizar_fecha_excel(valor):
             continue
     return texto  # se guarda tal cual si no se pudo interpretar
 
+def _es_hash(valor):
+    """Detecta si un password guardado ya es un hash de werkzeug (pbkdf2/scrypt)."""
+    return bool(valor) and (valor.startswith("pbkdf2:") or valor.startswith("scrypt:"))
+
+def _password_valida(password_guardado, password_ingresada):
+    """
+    Compara la contraseña ingresada contra la guardada.
+    Soporta migración transparente: si el usuario todavía tiene la
+    contraseña en texto plano (instalaciones antiguas), se compara
+    directo; si ya es un hash, se valida con check_password_hash.
+    """
+    if _es_hash(password_guardado):
+        return check_password_hash(password_guardado, password_ingresada)
+    return password_guardado == password_ingresada
+
 # ─── Rutas ───────────────────────────────────────────────────────
 @app.route("/login", methods=["GET","POST"])
+@limiter.limit("8 per minute")
 def login():
     error = None
     if request.method == "POST":
-        u = request.form["username"].strip()
-        p = request.form["password"].strip()
+        u = request.form.get("username", "").strip()
+        p = request.form.get("password", "").strip()
         conn = get_db()
-        user = conn.execute("SELECT * FROM usuarios WHERE username=? AND password=?", (u, p)).fetchone()
-        conn.close()
-        if user:
+        user = conn.execute("SELECT * FROM usuarios WHERE username=?", (u,)).fetchone()
+
+        if user and _password_valida(user["password"], p):
+            # Migración transparente: si todavía estaba en texto plano,
+            # se re-guarda como hash ahora que sabemos que es correcta.
+            if not _es_hash(user["password"]):
+                conn.execute("UPDATE usuarios SET password=? WHERE id=?",
+                             (generate_password_hash(p), user["id"]))
+                conn.commit()
             session["usuario"] = user["username"]
             session["rol"] = user["rol"]
+            conn.close()
             return redirect(url_for("inicio"))
+
+        conn.close()
         error = "Usuario o contraseña incorrectos"
     return render_template("login.html", error=error)
-
-@app.route('/activos')
-def activos():
-    conn = get_db_connection()
-    data = conn.execute("SELECT * FROM vehiculos WHERE estado='ACTIVO' ORDER BY entrada DESC").fetchall()
-    conn.close()
-    return render_template("activos.html", vehiculos=data)
 
 @app.route("/logout")
 def logout():
@@ -275,6 +331,8 @@ def inicio():
 @app.route("/entrada/<tipo>", methods=["GET","POST"])
 @login_required
 def entrada(tipo):
+    if tipo not in ("carro", "moto"):
+        return "Tipo de vehículo no válido", 404
     mensaje = None
     cliente = None
     if request.method == "POST":
@@ -741,6 +799,12 @@ def mensualidades():
             pass
 
     if request.method == "POST":
+        # Crear/editar mensualidades queda restringido a admin (la
+        # consulta/listado sigue abierta a cualquier operador logueado).
+        if session.get("rol") != "admin":
+            conn.close()
+            return redirect(url_for("mensualidades"))
+
         nombre = request.form.get("nombre", "").strip()
         placa = request.form.get("placa", "").strip().upper()
         tel = request.form.get("telefono", "").strip()
@@ -787,8 +851,9 @@ def mensualidades():
     return render_template("mensualidades.html", lista=lista,
                            mensaje_carga=mensaje_carga, error_carga=error_carga)
 
-@app.route("/eliminar_mensualidad/<int:id>")
+@app.route("/eliminar_mensualidad/<int:id>", methods=["POST"])
 @login_required
+@admin_required
 def eliminar_mensualidad(id):
     conn = get_db()
     conn.execute("DELETE FROM mensualidades WHERE id = ?", (id,))
@@ -831,6 +896,7 @@ def plantilla_excel_mensualidades():
 
 @app.route("/mensualidades/cargar_excel", methods=["POST"])
 @login_required
+@admin_required
 def cargar_excel_mensualidades():
     archivo = request.files.get("archivo_excel")
     if not archivo or archivo.filename == "":
@@ -959,7 +1025,9 @@ def api_valor_estimado():
 
 # ─── API para el agente de impresión (DigitalPOS por IP) ─────────
 def _check_printer_key():
-    return request.headers.get("X-API-KEY") == PRINTER_API_KEY
+    if not PRINTER_API_KEY:
+        return False
+    return hmac.compare_digest(request.headers.get("X-API-KEY", ""), PRINTER_API_KEY)
 
 @app.route("/api/pendientes_impresion")
 def api_pendientes_impresion():
@@ -992,6 +1060,7 @@ def api_pendientes_impresion():
     })
 
 @app.route("/api/marcar_impreso/<int:id>/<tipo>", methods=["POST"])
+@csrf.exempt  # lo llama el agente local de impresión, autenticado por X-API-KEY, no por sesión de navegador
 def api_marcar_impreso(id, tipo):
     if not _check_printer_key():
         return jsonify({"error": "no autorizado"}), 401
@@ -1011,15 +1080,17 @@ def api_marcar_impreso(id, tipo):
 def perfil():
     mensaje = None
     if request.method == "POST":
-        nueva_pass = request.form.get("password").strip()
-        confirmar_pass = request.form.get("confirmar_password").strip()
-        
+        nueva_pass = request.form.get("password", "").strip()
+        confirmar_pass = request.form.get("confirmar_password", "").strip()
+
         if not nueva_pass:
             mensaje = ("error", "La contraseña no puede estar vacía")
+        elif len(nueva_pass) < 6:
+            mensaje = ("error", "La contraseña debe tener al menos 6 caracteres")
         elif nueva_pass == confirmar_pass:
             conn = get_db()
-            conn.execute("UPDATE usuarios SET password=? WHERE username=?", 
-                         (nueva_pass, session["usuario"]))
+            conn.execute("UPDATE usuarios SET password=? WHERE username=?",
+                         (generate_password_hash(nueva_pass), session["usuario"]))
             conn.commit()
             conn.close()
             mensaje = ("success", "¡Contraseña actualizada con éxito!")
@@ -1038,13 +1109,14 @@ def gestion_usuarios():
     conn.close()
     return render_template("usuarios.html", usuarios=usuarios)
 
-@app.route("/usuarios/reset/<int:id>")
+@app.route("/usuarios/reset/<int:id>", methods=["POST"])
 @login_required
 @admin_required
 def reset_password(id):
     conn = get_db()
     # Reseteo a clave genérica para que el operador la cambie luego en su perfil
-    conn.execute("UPDATE usuarios SET password=? WHERE id=?", ("cambiar123", id))
+    conn.execute("UPDATE usuarios SET password=? WHERE id=?",
+                 (generate_password_hash("cambiar123"), id))
     conn.commit()
     conn.close()
     return redirect(url_for('gestion_usuarios'))
@@ -1095,11 +1167,16 @@ def estadisticas():
                            dias_restantes=dias_restantes)    
     return render_template("estadisticas.html", labels=labels, valores=valores, por_tipo=por_tipo)
 
-# ─── Limpiar Pruebas (Solo Admin) ────────────────────────────────
-@app.route("/admin/limpiar_pruebas")
+# ─── Limpiar Pruebas (Solo Admin, y solo en entorno de desarrollo) ─
+# Borra TODO el histórico de parqueadero. Se bloquea por completo a
+# menos que la variable de entorno DEVELOPMENT=true esté activa, para
+# que nunca se pueda disparar por accidente en producción (Railway).
+@app.route("/admin/limpiar_pruebas", methods=["POST"])
 @login_required
 @admin_required
 def limpiar_pruebas():
+    if os.environ.get("DEVELOPMENT") != "true":
+        return "Esta función solo está disponible en entorno de desarrollo.", 403
     conn = get_db()
     conn.execute("DELETE FROM parqueadero")
     conn.execute("UPDATE consecutivo SET numero=0 WHERE id=1")
@@ -1145,14 +1222,15 @@ def imprimir_caja():
                            total_salidas=total_salidas_hoy)
 
 # ─── Ruta para Anular Pago ─────────────────────────────────────
-@app.route("/anular_pago/<int:id>")
+@app.route("/anular_pago/<int:id>", methods=["POST"])
 @login_required
 @admin_required
 def anular_pago(id):
 
-    # Capturamos los datos desde la URL
-    motivo = request.args.get("motivo", "No especificado").strip()
-    valor_real_raw = request.args.get("real", "0")
+    # Capturamos los datos del formulario (antes venían por la URL/GET,
+    # lo que permitía anular un pago con solo hacer clic en un link).
+    motivo = request.form.get("motivo", "No especificado").strip()
+    valor_real_raw = request.form.get("real", "0")
 
     # Convertimos el valor a pesos enteros
     try:

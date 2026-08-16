@@ -2,3 +2,5 @@ flask
 gunicorn
 pytz
 openpyxl
+flask-wtf
+flask-limiter
