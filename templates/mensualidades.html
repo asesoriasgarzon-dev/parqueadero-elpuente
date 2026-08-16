@@ -100,6 +100,18 @@
     </form>
   </div>
 </div>
+
+<div class="card" style="max-width:850px;margin-bottom:1.5rem;border-left:4px solid #4a90e2">
+  <div style="font-weight:700;margin-bottom:.5rem;color:var(--text2)">📇 Base de Clientes (CRM)</div>
+  <p style="color:var(--text2); font-size:0.9rem; margin-bottom:1rem;">
+    Descarga un Excel con placa, teléfono, tipo de cliente (Mensualidad/Diario)
+    y la fecha de vencimiento de las mensualidades -- útil para llevar tu
+    propio CRM o hacer seguimiento a los clientes.
+  </p>
+  <a href="{{ url_for('excel_clientes_crm') }}" class="btn" style="background:#4a90e2; color:#fff; font-weight:bold;">
+    📇 Descargar Base de Clientes
+  </a>
+</div>
 {% endif %}
 
 <div class="card" style="margin-bottom: 1.5rem; border-left: 4px solid var(--accent);">

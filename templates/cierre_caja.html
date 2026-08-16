@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Cerrar Caja – El Puente{% endblock %}
+
+{% block content %}
+<div class="page-title">Cuadre de <span>Caja</span></div>
+
+<p style="color:var(--text2); font-size:0.9rem; margin-bottom:1.5rem;">
+  Fecha: <b>{{ fecha }}</b> ·
+  <a href="{{ url_for('caja') }}" style="color:var(--accent);">← Volver a Caja</a>
+</p>
+
+{% if existente %}
+<div class="card" style="max-width:600px; margin-bottom:1.5rem; border-left:4px solid {{ 'var(--danger)' if existente.diferencia != 0 else 'var(--accent)' }}">
+  <div style="font-weight:700; margin-bottom:1rem; color:var(--text2);">
+    Este día ya se cerró
+  </div>
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.6rem; font-size:0.95rem;">
+    <div>Base inicial:</div><div><b>${{ "{:,.0f}".format(existente.base_inicial).replace(',', '.') }}</b></div>
+    <div>Efectivo esperado:</div><div><b>${{ "{:,.0f}".format(existente.efectivo_esperado).replace(',', '.') }}</b></div>
+    <div>Efectivo contado:</div><div><b>${{ "{:,.0f}".format(existente.efectivo_contado).replace(',', '.') }}</b></div>
+    <div>Diferencia:</div>
+    <div>
+      <b style="color: {{ 'var(--danger)' if existente.diferencia != 0 else 'var(--accent)' }}">
+        {% if existente.diferencia > 0 %}Sobran ${{ "{:,.0f}".format(existente.diferencia).replace(',', '.') }}
+        {% elif existente.diferencia < 0 %}Faltan ${{ "{:,.0f}".format(-existente.diferencia).replace(',', '.') }}
+        {% else %}Cuadrada exacta{% endif %}
+      </b>
+    </div>
+    <div>Cerrada por:</div><div>{{ existente.usuario }} el {{ existente.fecha_hora }}</div>
+    {% if existente.observaciones %}
+    <div>Observaciones:</div><div>{{ existente.observaciones }}</div>
+    {% endif %}
+  </div>
+  <p style="color:var(--text2); font-size:0.85rem; margin-top:1rem;">
+    Si te equivocaste, puedes volver a cerrar esta misma fecha abajo -- quedará el registro de ambos cierres en Auditoría.
+  </p>
+</div>
+{% endif %}
+
+<div class="card" style="max-width:600px">
+  <div style="font-weight:700; margin-bottom:1rem; color:var(--text2);">
+    {{ 'Volver a cerrar este día' if existente else 'Cerrar caja de este día' }}
+  </div>
+
+  <form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="fecha" value="{{ fecha }}">
+
+    <div class="form-group">
+      <label>Base inicial (con la que abriste el día)</label>
+      <input id="base_inicial" name="base_inicial" type="number" step="1" class="form-control"
+             value="{{ existente.base_inicial|int if existente else base_sugerida }}" oninput="recalcular()" required>
+    </div>
+
+    <div class="form-group">
+      <label>Efectivo esperado (calculado automáticamente)</label>
+      <input id="efectivo_esperado_vista" type="text" class="form-control" disabled>
+      <small style="color:var(--text2)">= base inicial + ventas en efectivo del día (${{ "{:,}".format(efectivo_ventas) }})</small>
+    </div>
+
+    <div class="form-group">
+      <label>Efectivo contado (lo que realmente cuentas en la caja)</label>
+      <input id="efectivo_contado" name="efectivo_contado" type="number" step="1" class="form-control"
+             value="{{ existente.efectivo_contado|int if existente else '' }}" oninput="recalcular()" required>
+    </div>
+
+    <div class="form-group">
+      <label>Diferencia</label>
+      <input id="diferencia_vista" type="text" class="form-control" disabled>
+    </div>
+
+    <div class="form-group">
+      <label>Observaciones (opcional, útil si hubo diferencia)</label>
+      <textarea name="observaciones" class="form-control" rows="2" placeholder="Ej: faltó vuelto, se dio un descuento no registrado, etc.">{{ existente.observaciones if existente else '' }}</textarea>
+    </div>
+
+    <button type="submit" class="btn btn-primary">💾 Guardar Cuadre de Caja</button>
+  </form>
+</div>
+
+<script>
+const efectivoVentasDia = {{ efectivo_ventas }};
+
+function recalcular() {
+  const base = Number(document.getElementById("base_inicial").value || 0);
+  const contado = Number(document.getElementById("efectivo_contado").value || 0);
+  const esperado = base + efectivoVentasDia;
+  const diferencia = contado - esperado;
+
+  const fmt = (n) => "$" + Math.round(n).toLocaleString("es-CO");
+
+  document.getElementById("efectivo_esperado_vista").value = fmt(esperado);
+
+  const campoDif = document.getElementById("diferencia_vista");
+  if (diferencia === 0) {
+    campoDif.value = "Cuadrada exacta";
+  } else if (diferencia > 0) {
+    campoDif.value = "Sobran " + fmt(diferencia);
+  } else {
+    campoDif.value = "Faltan " + fmt(Math.abs(diferencia));
+  }
+}
+
+recalcular();
+</script>
+{% endblock %}

@@ -1,13 +1,23 @@
 {% extends "base.html" %}
 {% block title %}Caja – El Puente{% endblock %}
 {% block content %}
-<div class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap:wrap; gap:10px;">
     <div class="page-title" style="margin: 0;">Cierre de <span>Caja</span></div>
-    
-    <a href="{{ url_for('imprimir_caja') }}" target="_blank" class="btn" 
-       style="background: #00d28d; color: #0b0e14; font-weight: bold; display: flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 8px; text-decoration: none; transition: 0.3s;">
-       <i class="fas fa-print"></i> IMPRIMIR CIERRE (80mm)
-    </a>
+
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+      <a href="{{ url_for('cerrar_caja') }}" class="btn"
+         style="background: var(--accent); color: #0b0e14; font-weight: bold; display: flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 8px; text-decoration: none;">
+         🧮 Cuadre de Caja de Hoy
+      </a>
+      <a href="{{ url_for('tickets_dia_pdf', fecha=fecha_hoy) }}" class="btn"
+         style="background: var(--surface2); color: var(--text); border:1px solid var(--border); font-weight: bold; display: flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 8px; text-decoration: none;">
+         📄 PDF de Tickets de Hoy
+      </a>
+      <a href="{{ url_for('imprimir_caja') }}" target="_blank" class="btn"
+         style="background: #00d28d; color: #0b0e14; font-weight: bold; display: flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 8px; text-decoration: none;">
+         <i class="fas fa-print"></i> IMPRIMIR CIERRE (80mm)
+      </a>
+    </div>
 </div>
 
 <form method="GET" class="search-bar" style="max-width:600px; display:flex; gap:15px; align-items:flex-end; flex-wrap:wrap; margin-bottom:2rem;">
@@ -75,4 +85,44 @@
     </tbody>
   </table>
 </div>
+
+{% if cierres_recientes %}
+<div class="page-title" style="font-size:1.2rem; margin-top:2rem;">Cuadres de Caja <span>Recientes</span></div>
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Fecha</th>
+        <th>Base Inicial</th>
+        <th>Efectivo Esperado</th>
+        <th>Efectivo Contado</th>
+        <th>Diferencia</th>
+        <th>Cerrado por</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for cierre in cierres_recientes %}
+    <tr>
+      <td>
+        <a href="{{ url_for('cerrar_caja', fecha=cierre.fecha) }}" style="color:var(--accent);">
+          {{ cierre.fecha }}
+        </a>
+      </td>
+      <td>${{ "{:,.0f}".format(cierre.base_inicial).replace(',', '.') }}</td>
+      <td>${{ "{:,.0f}".format(cierre.efectivo_esperado).replace(',', '.') }}</td>
+      <td>${{ "{:,.0f}".format(cierre.efectivo_contado).replace(',', '.') }}</td>
+      <td>
+        <b style="color: {{ 'var(--danger)' if cierre.diferencia != 0 else 'var(--accent)' }}">
+          {% if cierre.diferencia > 0 %}+${{ "{:,.0f}".format(cierre.diferencia).replace(',', '.') }}
+          {% elif cierre.diferencia < 0 %}-${{ "{:,.0f}".format(-cierre.diferencia).replace(',', '.') }}
+          {% else %}Cuadrada{% endif %}
+        </b>
+      </td>
+      <td>{{ cierre.usuario or '---' }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
 {% endblock %}
