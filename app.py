@@ -953,41 +953,64 @@ def imprimir_caja():
                            total_entradas=total_entradas_hoy,
                            total_salidas=total_salidas_hoy)
 
-# ─── Ruta para Anular Pago (Versión Corregida) ──────────────────
+# ─── Ruta para Anular Pago ─────────────────────────────────────
 @app.route("/anular_pago/<int:id>")
 @login_required
 @admin_required
 def anular_pago(id):
-    # Capturamos los datos desde la URL (?motivo=...&real=...)
-    motivo = request.args.get("motivo", "No especificado")
+
+    # Capturamos los datos desde la URL
+    motivo = request.args.get("motivo", "No especificado").strip()
     valor_real_raw = request.args.get("real", "0")
-    
-    # Limpiamos el valor numérico de posibles puntos o comas
+
+    # Convertimos el valor a pesos enteros
     try:
-        valor_real = float(str(valor_real_raw).replace(",", "").replace(".", ""))
-    except:
+        valor_real = int(
+            str(valor_real_raw)
+            .replace("$", "")
+            .replace(".", "")
+            .replace(",", "")
+            .strip()
+        )
+    except (ValueError, TypeError):
         valor_real = 0
-    
+
     conn = get_db()
-    # Verificamos si el registro existe
-    reg = conn.execute("SELECT id FROM parqueadero WHERE id = ?", (id,)).fetchone()
-    
+
+    # Verificamos que exista y obtenemos estado de anulación
+    reg = conn.execute("""
+        SELECT id, anulado
+        FROM parqueadero
+        WHERE id = ?
+    """, (id,)).fetchone()
+
     if reg:
-        # 1. Marcamos como anulado
-        # 2. Guardamos el motivo y lo que se cobró realmente
-        # 3. Seteamos 'valor' a 0 para que NO sume en el total de la caja
+
+        # Evitar doble anulación
+        if reg["anulado"]:
+            conn.close()
+            return redirect(url_for("historico"))
+
+        # Registrar anulación
         conn.execute("""
             UPDATE parqueadero 
-            SET anulado = 1, 
-                motivo_anulacion = ?, 
-                valor_real = ?, 
-                valor = 0 
+            SET 
+                anulado = 1,
+                motivo_anulacion = ?,
+                valor_real = ?,
+                valor = 0
             WHERE id = ?
-        """, (motivo, valor_real, id))
+        """, (
+            motivo,
+            valor_real,
+            id
+        ))
+
         conn.commit()
-    
+
     conn.close()
-    return redirect(url_for('historico'))
+
+    return redirect(url_for("historico"))
     
 # Mueve la llamada afuera del if para que Railway la ejecute sí o sí
 init_db()
