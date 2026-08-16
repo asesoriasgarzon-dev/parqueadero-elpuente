@@ -53,6 +53,17 @@ if not PRINTER_API_KEY:
     print("ADVERTENCIA: PRINTER_API_KEY no está definida. "
           "La impresión remota (agente local) quedará deshabilitada hasta que la configures.")
 
+# ─── Impresión: estados y timeout de reserva ──────────────────────
+# impreso_entrada / impreso_salida ya no son un simple 0/1. Pasan a tener
+# tres estados: 0 = pendiente, 2 = reservado (un agente lo está
+# imprimiendo ahora mismo), 3 = impreso (confirmado). El valor 1 se deja
+# sin usar a propósito: es el valor "impreso" del esquema viejo, y así
+# una migración one-time lo puede distinguir sin ambigüedad (ver init_db).
+# Si un ticket queda "reservado" más de este tiempo sin confirmarse (el
+# agente se cayó, perdió conexión, etc.), vuelve a quedar disponible para
+# que se reintente -- así nunca se pierde un ticket por un fallo del agente.
+IMPRESION_RESERVA_TIMEOUT_SEG = 120
+
 def get_colombia_time():
     # Creamos la zona horaria de Bogotá
     tz = pytz.timezone('America/Bogota')
@@ -180,14 +191,25 @@ def init_db():
         ("motivo_anulacion", "TEXT"),
         ("valor_real", "REAL DEFAULT 0"),
         ("impreso_entrada", "INTEGER DEFAULT 0"),
-        ("impreso_salida", "INTEGER DEFAULT 0")
+        ("impreso_salida", "INTEGER DEFAULT 0"),
+        ("impreso_entrada_reservado_en", "TEXT"),
+        ("impreso_salida_reservado_en", "TEXT"),
     ]
-    
+
     for col in columnas_parqueadero:
         try:
             c.execute(f"ALTER TABLE parqueadero ADD COLUMN {col[0]} {col[1]}")
         except Exception:
             pass # La columna ya existe
+
+    # Migración one-time del esquema viejo de impresión (0/1) al nuevo
+    # (0=pendiente, 2=reservado, 3=impreso). Los tickets que YA estaban
+    # marcados como impresos (valor 1, el único que existía antes) se
+    # promueven a 3 para que conserven su significado y no se reimpriman.
+    # Es seguro correr esto en cada arranque: después de la primera vez
+    # ya no queda ninguna fila con el valor 1, así que no hace nada.
+    c.execute("UPDATE parqueadero SET impreso_entrada = 3 WHERE impreso_entrada = 1")
+    c.execute("UPDATE parqueadero SET impreso_salida = 3 WHERE impreso_salida = 1")
 
     # Columnas adicionales para Mensualidades (Datos del propietario)
     columnas_mensualidades = [
@@ -1188,26 +1210,85 @@ def _check_printer_key():
         return False
     return hmac.compare_digest(request.headers.get("X-API-KEY", ""), PRINTER_API_KEY)
 
+def _reclamar_para_impresion(conn, ids, campo_estado):
+    """
+    Intenta RESERVAR (para impresión) cada id de `ids` en la columna
+    `campo_estado` ('impreso_entrada' o 'impreso_salida') de parqueadero.
+
+    Un id se reclama con éxito si estaba pendiente (0) o si estaba
+    reservado pero la reserva ya expiró (nadie confirmó la impresión en
+    IMPRESION_RESERVA_TIMEOUT_SEG). El UPDATE repite esa condición en el
+    WHERE, así que si dos polls del agente llegan casi al mismo tiempo,
+    el segundo simplemente no logra reclamar los que el primero ya tomó
+    (rowcount = 0) -- no hay ventana en la que ambos puedan "ganar" el
+    mismo ticket.
+
+    Devuelve solo los ids que se lograron reservar.
+    """
+    campo_reservado = campo_estado + "_reservado_en"
+    ahora_str = get_colombia_time().strftime("%Y-%m-%d %H:%M:%S")
+    cutoff = (get_colombia_time() - timedelta(seconds=IMPRESION_RESERVA_TIMEOUT_SEG)).strftime("%Y-%m-%d %H:%M:%S")
+
+    reclamados = []
+    for rid in ids:
+        cur = conn.execute(f"""
+            UPDATE parqueadero
+            SET {campo_estado} = 2, {campo_reservado} = ?
+            WHERE id = ?
+              AND ({campo_estado} = 0 OR ({campo_estado} = 2 AND {campo_reservado} < ?))
+        """, (ahora_str, rid, cutoff))
+        if cur.rowcount == 1:
+            reclamados.append(rid)
+    return reclamados
+
 @app.route("/api/pendientes_impresion")
 def api_pendientes_impresion():
     if not _check_printer_key():
         return jsonify({"error": "no autorizado"}), 401
 
     conn = get_db()
-    entradas = conn.execute("""
-        SELECT id, placa, tipo, hora_entrada, ticket_num, marca, celular
-        FROM parqueadero
-        WHERE (impreso_entrada IS NULL OR impreso_entrada = 0)
-        ORDER BY id ASC
-    """).fetchall()
+    cutoff = (get_colombia_time() - timedelta(seconds=IMPRESION_RESERVA_TIMEOUT_SEG)).strftime("%Y-%m-%d %H:%M:%S")
 
-    salidas = conn.execute("""
-        SELECT id, placa, tipo, hora_entrada, hora_salida, valor, ticket_num, metodo_pago
-        FROM parqueadero
-        WHERE hora_salida IS NOT NULL
-        AND (impreso_salida IS NULL OR impreso_salida = 0)
+    # 1. Buscamos candidatos: pendientes de verdad, o "reservados" pero
+    #    cuya reserva ya expiró (el agente que los tomó no confirmó a
+    #    tiempo -- probablemente se cayó o perdió la conexión).
+    ids_entrada = [r["id"] for r in conn.execute("""
+        SELECT id FROM parqueadero
+        WHERE (impreso_entrada = 0 OR (impreso_entrada = 2 AND impreso_entrada_reservado_en < ?))
         ORDER BY id ASC
-    """).fetchall()
+    """, (cutoff,)).fetchall()]
+
+    ids_salida = [r["id"] for r in conn.execute("""
+        SELECT id FROM parqueadero
+        WHERE hora_salida IS NOT NULL
+          AND (impreso_salida = 0 OR (impreso_salida = 2 AND impreso_salida_reservado_en < ?))
+        ORDER BY id ASC
+    """, (cutoff,)).fetchall()]
+
+    # 2. Reservamos atómicamente los que logremos (ver _reclamar_para_impresion).
+    reclamados_entrada = _reclamar_para_impresion(conn, ids_entrada, "impreso_entrada")
+    reclamados_salida = _reclamar_para_impresion(conn, ids_salida, "impreso_salida")
+    conn.commit()
+
+    # 3. Solo devolvemos al agente los que de verdad quedaron reservados
+    #    a nuestro nombre en este poll (nunca los que otro poll ya se
+    #    llevó mientras tanto).
+    entradas = []
+    if reclamados_entrada:
+        placeholders = ",".join("?" * len(reclamados_entrada))
+        entradas = conn.execute(f"""
+            SELECT id, placa, tipo, hora_entrada, ticket_num, marca, celular
+            FROM parqueadero WHERE id IN ({placeholders}) ORDER BY id ASC
+        """, reclamados_entrada).fetchall()
+
+    salidas = []
+    if reclamados_salida:
+        placeholders = ",".join("?" * len(reclamados_salida))
+        salidas = conn.execute(f"""
+            SELECT id, placa, tipo, hora_entrada, hora_salida, valor, ticket_num, metodo_pago
+            FROM parqueadero WHERE id IN ({placeholders}) ORDER BY id ASC
+        """, reclamados_salida).fetchall()
+
     conn.close()
 
     return jsonify({
@@ -1228,10 +1309,28 @@ def api_marcar_impreso(id, tipo):
 
     columna = "impreso_entrada" if tipo == "entrada" else "impreso_salida"
     conn = get_db()
-    conn.execute(f"UPDATE parqueadero SET {columna} = 1 WHERE id = ?", (id,))
-    conn.commit()
+
+    # Confirmamos IMPRESO (3) solo si seguía reservado (2) a nombre de
+    # este ciclo de impresión.
+    cur = conn.execute(f"UPDATE parqueadero SET {columna} = 3 WHERE id = ? AND {columna} = 2", (id,))
+
+    if cur.rowcount == 1:
+        conn.commit()
+        conn.close()
+        return jsonify({"ok": True})
+
+    # Si ya estaba confirmado como impreso (por ejemplo, el agente
+    # reintentó esta misma llamada tras un problema de red), lo tratamos
+    # como éxito de todos modos: el estado final es el que se esperaba.
+    fila = conn.execute(f"SELECT {columna} as estado FROM parqueadero WHERE id = ?", (id,)).fetchone()
     conn.close()
-    return jsonify({"ok": True})
+
+    if fila and fila["estado"] == 3:
+        return jsonify({"ok": True})
+
+    # La reserva expiró y el ticket ya se le entregó a otro poll (o el id
+    # no existe). El agente no debería reintentar imprimir este mismo id.
+    return jsonify({"ok": False, "error": "el ticket ya no estaba reservado a este ciclo"}), 409
 
 # ─── Perfil y Seguridad ──────────────────────────────────────────
 @app.route("/perfil", methods=["GET", "POST"])
