@@ -1458,16 +1458,25 @@ def estadisticas():
     dias_restantes = ultimo_dia - ahora.day
     
     # Ingresos últimos 7 días (se excluyen pagos anulados -- no son ingreso real)
+    #
+    # CAMBIO (Fase 6): antes se usaba date('now', '-7 days') de SQLite, que
+    # calcula 'now' en UTC. Bogotá está UTC-5, así que entre medianoche y
+    # las 5am hora Colombia, SQLite ya "cree" que es el día siguiente y el
+    # corte de 7 días quedaba desfasado (podía incluir un día de más o de
+    # menos según la hora exacta en que se consultara). Ahora el corte se
+    # calcula en Python con get_colombia_time(), la misma hora que se usa
+    # para escribir hora_salida, y se pasa como parámetro.
+    hace_7_dias = (ahora - timedelta(days=7)).strftime("%Y-%m-%d")
     query_semana = """
         SELECT date(hora_salida) as fecha, SUM(valor) as total
         FROM parqueadero
         WHERE hora_salida IS NOT NULL
-        AND date(hora_salida) > date('now', '-7 days')
+        AND date(hora_salida) > ?
         AND (anulado = 0 OR anulado IS NULL)
         GROUP BY date(hora_salida)
         ORDER BY fecha ASC
     """
-    datos = conn.execute(query_semana).fetchall()
+    datos = conn.execute(query_semana, (hace_7_dias,)).fetchall()
 
     # Ingresos por tipo (idem, sin pagos anulados)
     por_tipo = conn.execute("""
