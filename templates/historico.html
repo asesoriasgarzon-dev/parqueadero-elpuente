@@ -128,12 +128,12 @@
 
           {% if r.anulado %}
 
-            <!-- El valor original fue anulado -->
+            <!-- El cobro fue anulado (el valor original se conserva, no se pierde) -->
             <div
               class="texto-anulado"
               style="font-weight:700">
 
-              Cobro anulado
+              Anulado (original: ${{ "{:,}".format(r.valor|int) }})
 
             </div>
 
@@ -258,6 +258,17 @@
                 </strong><br>
 
                 {{ r.motivo_anulacion or 'No especificado' }}
+
+              </p>
+
+
+              <p>
+
+                <strong>
+                  💰 Valor original del cobro:
+                </strong><br>
+
+                ${{ "{:,}".format(r.valor|int) }}
 
               </p>
 

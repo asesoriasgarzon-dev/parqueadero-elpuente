@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Auditoría – El Puente{% endblock %}
+
+{% block content %}
+<style>
+  .table-wrap table tbody tr {
+    background-color: var(--surface) !important;
+    color: var(--text) !important;
+    border-bottom: 1px solid var(--border) !important;
+  }
+  .table-wrap table tbody tr:hover td {
+    background: transparent !important;
+  }
+</style>
+
+<div class="page-title">Registro de <span>Auditoría</span></div>
+
+<p style="color:var(--text2); font-size:0.9rem; margin-bottom:1rem;">
+  Quién hizo qué, cuándo y sobre qué registro. Cubre anulaciones de pago, cambios de tarifas,
+  reseteo de claves, y creación/edición/borrado de mensualidades. Se muestran los últimos 300 movimientos.
+</p>
+
+<form method="GET" class="search-bar" style="margin-bottom: 1.5rem;">
+  <select name="accion" class="form-control" onchange="this.form.submit()">
+    <option value="">Todas las acciones</option>
+    {% for a in acciones %}
+      <option value="{{ a.accion }}" {% if a.accion == accion_filtro %}selected{% endif %}>{{ a.accion }}</option>
+    {% endfor %}
+  </select>
+  {% if accion_filtro %}
+    <a href="{{ url_for('auditoria') }}" class="btn btn-secondary">Limpiar filtro</a>
+  {% endif %}
+</form>
+
+<div class="table-wrap">
+  <table style="width:100%">
+    <thead>
+      <tr>
+        <th>Fecha/Hora</th>
+        <th>Usuario</th>
+        <th>Acción</th>
+        <th>Tabla</th>
+        <th>Registro</th>
+        <th>Antes</th>
+        <th>Después</th>
+        <th>Motivo</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for r in regs %}
+    <tr>
+      <td style="font-size:0.82rem; white-space:nowrap;">{{ r.fecha_hora }}</td>
+      <td><b>{{ r.usuario }}</b></td>
+      <td><span class="badge badge-blue">{{ r.accion }}</span></td>
+      <td style="font-size:0.85rem;">{{ r.tabla_afectada }}</td>
+      <td style="font-size:0.85rem;">{{ r.registro_id or '—' }}</td>
+      <td style="font-size:0.8rem; color:var(--text2);">{{ r.valor_anterior or '—' }}</td>
+      <td style="font-size:0.8rem;">{{ r.valor_nuevo or '—' }}</td>
+      <td style="font-size:0.8rem; color:var(--text2);">{{ r.motivo or '—' }}</td>
+    </tr>
+    {% else %}
+    <tr>
+      <td colspan="8" style="text-align:center;color:var(--text2);padding:2rem">
+        No hay movimientos de auditoría todavía.
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
